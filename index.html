@@ -279,6 +279,30 @@ const PROJECTS = [
       { label: "Play Parasyte", note: "Runs in your browser. Keyboard and mouse.", href: "games/parasyte/play.html", primary: true }
     ],
     controls: [[["W","A","S","D"],"Move"],[["Mouse"],"Aim"],[["LMB"],"Fire"],[["RMB"],"Detonate"],[["R"],"Reload"],[["1-5"],"Weapons"],[["Space"],"Dodge and tear free"],[["Esc"],"End run"]]
+  },
+  {
+    id: "echo", section: "games",
+    title: "Echo", subtitle: "A game of listening in the dark",
+    summary: "Lost in pitch-black caves, you see only by sonar, and every ping tells the blind things where you are.",
+    body: "Each ping draws the cave walls for a moment, then the dark closes back in. The creatures down here are blind and hunt by sound alone, so every ping that shows you the way also gives you away. Collect echo shards, plant flares to light the rock for good, and creep past what you can't outrun as you descend deeper.",
+    tags: ["Game", "JavaScript", "Canvas 2D", "Web Audio"],
+    cover: "games/echo/shots/ping.webp",
+    shots: [
+      { src: "games/echo/shots/ping.webp",   alt: "A charged sonar ring expanding through a black cave, outlining the walls in cyan", cap: "A charged ping reaches further and draws more of the cave. It's also louder." },
+      { src: "games/echo/shots/cavern.webp", alt: "Cyan cave walls revealed by sonar around the player at depth one", cap: "The walls fade a moment after each echo. Remember the shape." },
+      { src: "games/echo/shots/title.webp",  alt: "Echo title screen: every sound you make is heard, with the controls list", cap: "Headphones recommended. Every sound in the game is synthesized live." },
+      { src: "games/echo/shots/paused.webp", alt: "Pause screen with depth, shard count, run seed and controls", cap: "Every run has a seed, so you can retry the exact same cave." }
+    ],
+    facts: [
+      ["Creatures", "Crawlers skitter, Stalkers breathe, and Listeners shriek to alert everything nearby"],
+      ["Runs", "Procedural, seeded caves that get harder with depth. Retry any seed."],
+      ["Sound", "Fully synthesized spatial audio. Headphones recommended."],
+      ["Built with", "One HTML file: JavaScript, canvas 2D and the Web Audio API"]
+    ],
+    actions: [
+      { label: "Play Echo", note: "Runs in your browser. Keyboard and mouse, with headphones.", href: "games/echo/play.html", primary: true }
+    ],
+    controls: [[["W","A","S","D"],"Move"],[["Space"],"Ping, hold to charge"],[["RMB"],"Focused ping"],[["C"],"Creep"],[["F"],"Plant a flare"],[["Esc"],"Pause"],[["M"],"Mute"]]
   }
 ];
 

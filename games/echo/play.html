@@ -1,0 +1,3316 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>ECHO</title>
+<meta name="description" content="Lost in pitch-black caves, you see only by sonar — and every ping tells the blind things where you are.">
+<style>
+  :root { color-scheme: dark; }
+  html, body { margin: 0; height: 100%; background: #020405; overflow: hidden; }
+  body { touch-action: none; user-select: none; -webkit-user-select: none; }
+  #game { position: fixed; inset: 0; width: 100%; height: 100%; display: block; outline: none; cursor: none; background: #020405; }
+</style>
+</head>
+<body>
+<canvas id="game" tabindex="0" aria-label="ECHO — a game of listening in the dark"></canvas>
+<script>
+'use strict';
+/* ═══════════════════════════════════════════════════════════════════════════
+   ECHO — a game of listening in the dark
+
+   Sections
+     1  CONFIG          tuning values, depth scaling
+     2  UTIL & RNG      math helpers, seeded RNG, hashes, value noise
+     3  INPUT           keyboard / mouse state
+     4  GENERATION      cellular-automata caves → marching-squares wall segments
+     5  GEOMETRY        raycasts, line of sight, circle collision
+     6  PATHFINDING     A* on the creature walk grid
+     7  WORLD           player, pings, noise, flares, pickups
+     8  CREATURES       blind, sound-driven AI
+     9  AUDIO           Web Audio synthesis
+    10  RENDERING       world, effects, HUD
+    11  UI & FLOW       title, tutorial, pause, death, storage
+    12  MAIN LOOP       fixed timestep + interpolation
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+/* ═══════════════════════════ 1. CONFIG ═══════════════════════════ */
+const CFG = {
+  TILE: 32,                 // world units per grid cell
+  STEP: 1 / 60,             // fixed simulation step
+  VIEW_H: 780,              // world units visible vertically (zoom is derived)
+  VIEW_W_MIN: 1000,         // ...and at least this many horizontally
+
+  // Cave size grows with depth
+  BASE_W: 56, GROW_W: 6, MAX_W: 124,
+  BASE_H: 38, GROW_H: 4, MAX_H: 84,
+
+  // Player
+  PLAYER_R: 7,
+  SPEED: 150,
+  CREEP_SPEED: 60,
+  CHARGE_SPEED_MUL: 0.62,
+  ACCEL: 950,
+  FRICTION: 8.5,
+  STEP_NOISE_MIN_SPEED: 96,
+  STEP_INTERVAL: 0.3,
+  BUMP_NOISE_SPEED: 115,
+
+  // Pings
+  PING_CD: 0.6,
+  PING_SPEED: 540,
+  PING_R: 300, PING_NOISE: 360, PING_REVEAL: 2.0,
+  CHARGE_DELAY: 0.17, CHARGE_TIME: 1.15,
+  CHARGED_R: 740, CHARGED_NOISE: 980, CHARGED_REVEAL: 3.8, CHARGED_CD: 1.15,
+  DIR_R: 470, DIR_HALF: 0.30, DIR_NOISE: 170, DIR_REVEAL: 1.7,
+
+  // Flares
+  FLARE_R: 190,
+
+  // Creatures
+  CREATURE_CLEAR: 14,       // min wall clearance of a cell a creature may path through
+};
+
+/* ═══════════════════════════ 2. UTIL & RNG ═══════════════════════════ */
+const TAU = Math.PI * 2;
+const clamp = (v, a, b) => (v < a ? a : v > b ? b : v);
+const lerp = (a, b, t) => a + (b - a) * t;
+const smoothstep = (t) => t * t * (3 - 2 * t);
+const angDiff = (a, b) => { let d = (a - b) % TAU; if (d > Math.PI) d -= TAU; if (d < -Math.PI) d += TAU; return d; };
+
+function hashU32(x) {
+  x = x >>> 0;
+  x = Math.imul(x ^ (x >>> 16), 0x7feb352d);
+  x = Math.imul(x ^ (x >>> 15), 0x846ca68b);
+  return (x ^ (x >>> 16)) >>> 0;
+}
+function hash3(a, b, c, s) {
+  return hashU32(Math.imul(a, 73856093) ^ Math.imul(b, 19349663) ^ Math.imul(c, 83492791) ^ s) / 4294967296;
+}
+function valueNoise(x, y, s) {
+  const xi = Math.floor(x), yi = Math.floor(y), xf = x - xi, yf = y - yi;
+  const u = smoothstep(xf), v = smoothstep(yf);
+  const h = (i, j) => hashU32(Math.imul(i, 374761393) ^ Math.imul(j, 668265263) ^ s) / 4294967296;
+  return lerp(lerp(h(xi, yi), h(xi + 1, yi), u), lerp(h(xi, yi + 1), h(xi + 1, yi + 1), u), v);
+}
+
+class RNG {                                   // mulberry32
+  constructor(seed) { this.s = seed >>> 0; }
+  float() {
+    let t = (this.s = (this.s + 0x6D2B79F5) >>> 0);
+    t = Math.imul(t ^ (t >>> 15), t | 1);
+    t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  }
+  range(a, b) { return a + (b - a) * this.float(); }
+  int(a, b) { return a + Math.floor(this.float() * (b - a + 1)); }
+  pick(arr) { return arr[Math.floor(this.float() * arr.length)]; }
+  chance(p) { return this.float() < p; }
+  shuffle(arr) { for (let i = arr.length - 1; i > 0; i--) { const j = Math.floor(this.float() * (i + 1)); const t = arr[i]; arr[i] = arr[j]; arr[j] = t; } return arr; }
+}
+const FX = new RNG((Date.now() ^ 0x5bd1e995) >>> 0);   // non-deterministic effects (particles, audio jitter)
+
+function randomSeed() {
+  try { const a = new Uint32Array(1); crypto.getRandomValues(a); return a[0] >>> 0; }
+  catch (e) { return (Math.random() * 4294967296) >>> 0; }
+}
+function seedLabel(s) { const h = (s >>> 0).toString(16).toUpperCase().padStart(8, '0'); return h.slice(0, 4) + '-' + h.slice(4); }
+
+const store = {
+  get(key, fallback) { try { const v = localStorage.getItem(key); return v == null ? fallback : JSON.parse(v); } catch (e) { return fallback; } },
+  set(key, val) { try { localStorage.setItem(key, JSON.stringify(val)); } catch (e) { /* storage unavailable */ } },
+};
+
+/* ═══════════════════════════ 3. INPUT ═══════════════════════════ */
+const Input = {
+  keys: new Set(),
+  mouseX: 0, mouseY: 0, mouseSeen: false, mouseL: false,
+  pingHeld: false,          // Space or left mouse held (non-directional)
+  pingReleased: false,      // edge: released this frame
+  dirPing: false,           // edge: directional ping requested
+  down(...codes) { for (const c of codes) if (this.keys.has(c)) return true; return false; },
+  shift() { return this.keys.has('ShiftLeft') || this.keys.has('ShiftRight'); },
+  reset() { this.keys.clear(); this.pingHeld = false; this.pingReleased = false; this.dirPing = false; this.mouseL = false; },
+};
+
+/* ═══════════════════════════ 4. GENERATION ═══════════════════════════ */
+// Grid samples sit at cell centres ((i+.5)T, (j+.5)T). Marching squares runs on the dual grid:
+// square (a,b) spans the four samples (a,b) (a+1,b) (a+1,b+1) (a,b+1). Walking its perimeter
+// clockwise and keeping wall corners + edge crossings yields the solid polygon for that square;
+// consecutive crossings are the wall segments. Saddles resolve as "walls connected".
+
+function squarePolygon(a, b, T, isWall, crossX, crossY, px, py, pc) {
+  const c0 = isWall(a, b), c1 = isWall(a + 1, b), c2 = isWall(a + 1, b + 1), c3 = isWall(a, b + 1);
+  const code = c0 | (c1 << 1) | (c2 << 2) | (c3 << 3);
+  if (code === 0) return 0;
+  if (code === 15) return -1;
+  const x0 = (a + 0.5) * T, x1 = (a + 1.5) * T, y0 = (b + 0.5) * T, y1 = (b + 1.5) * T;
+  let n = 0;
+  if (c0) { px[n] = x0; py[n] = y0; pc[n++] = 0; }
+  if (c0 !== c1) { px[n] = crossX(a, b); py[n] = y0; pc[n++] = 1; }
+  if (c1) { px[n] = x1; py[n] = y0; pc[n++] = 0; }
+  if (c1 !== c2) { px[n] = x1; py[n] = crossY(a + 1, b); pc[n++] = 1; }
+  if (c2) { px[n] = x1; py[n] = y1; pc[n++] = 0; }
+  if (c2 !== c3) { px[n] = crossX(a, b + 1); py[n] = y1; pc[n++] = 1; }
+  if (c3) { px[n] = x0; py[n] = y1; pc[n++] = 0; }
+  if (c3 !== c0) { px[n] = x0; py[n] = crossY(a, b); pc[n++] = 1; }
+  return n;
+}
+
+function marchSquares(W, H, T, isWall, crossX, crossY) {
+  const SW = W - 1, SH = H - 1;
+  const coords = [], sqOf = [];
+  const px = new Float64Array(8), py = new Float64Array(8), pc = new Uint8Array(8);
+  for (let b = 0; b < SH; b++) for (let a = 0; a < SW; a++) {
+    const n = squarePolygon(a, b, T, isWall, crossX, crossY, px, py, pc);
+    if (n <= 0) continue;
+    for (let k = 0; k < n; k++) {
+      const k2 = (k + 1) % n;
+      if (pc[k] && pc[k2]) { coords.push(px[k], py[k], px[k2], py[k2]); sqOf.push(b * SW + a); }
+    }
+  }
+  const nSegs = sqOf.length;
+  const segs = Float32Array.from(coords);
+  const segN = new Float32Array(nSegs * 2);            // unit normal pointing into open space
+  for (let s = 0; s < nSegs; s++) {
+    const dx = segs[s * 4 + 2] - segs[s * 4], dy = segs[s * 4 + 3] - segs[s * 4 + 1];
+    const len = Math.hypot(dx, dy) || 1;
+    segN[s * 2] = dy / len; segN[s * 2 + 1] = -dx / len;
+  }
+  const sqStart = new Int32Array(SW * SH + 1);        // CSR: square → segment list (spatial buckets)
+  for (let s = 0; s < nSegs; s++) sqStart[sqOf[s] + 1]++;
+  for (let i = 0; i < SW * SH; i++) sqStart[i + 1] += sqStart[i];
+  const fill = sqStart.slice(0, SW * SH), sqSegs = new Int32Array(nSegs);
+  for (let s = 0; s < nSegs; s++) sqSegs[fill[sqOf[s]]++] = s;
+  return { SW, SH, segs, segN, nSegs, sqStart, sqSegs };
+}
+
+function labelRegions(g, W, H) {
+  const lab = new Int32Array(W * H).fill(-1);
+  const stack = new Int32Array(W * H);
+  const regions = [];
+  for (let i = 0; i < W * H; i++) {
+    if (g[i] !== 0 || lab[i] >= 0) continue;
+    const id = regions.length, cells = [];
+    let sp = 0; stack[sp++] = i; lab[i] = id;
+    while (sp) {
+      const c = stack[--sp]; cells.push(c);
+      const x = c % W;
+      if (x > 0 && g[c - 1] === 0 && lab[c - 1] < 0) { lab[c - 1] = id; stack[sp++] = c - 1; }
+      if (x < W - 1 && g[c + 1] === 0 && lab[c + 1] < 0) { lab[c + 1] = id; stack[sp++] = c + 1; }
+      if (c >= W && g[c - W] === 0 && lab[c - W] < 0) { lab[c - W] = id; stack[sp++] = c - W; }
+      if (c < W * (H - 1) && g[c + W] === 0 && lab[c + W] < 0) { lab[c + W] = id; stack[sp++] = c + W; }
+    }
+    regions.push(cells);
+  }
+  return { lab, regions };
+}
+
+function carveTunnel(g, W, H, ax, ay, bx, by, rng) {
+  let x = ax, y = ay, guard = 0;
+  while ((Math.abs(bx - x) > 1 || Math.abs(by - y) > 1) && guard++ < 3000) {
+    const dx = bx - x, dy = by - y;
+    if (rng.chance(0.28)) {
+      if (rng.chance(0.5)) x += Math.sign(dx) || (rng.chance(0.5) ? 1 : -1);
+      else y += Math.sign(dy) || (rng.chance(0.5) ? 1 : -1);
+    } else if (Math.abs(dx) > Math.abs(dy)) x += Math.sign(dx);
+    else y += Math.sign(dy);
+    x = clamp(x, 1, W - 3); y = clamp(y, 1, H - 3);
+    for (let oy = 0; oy < 2; oy++) for (let ox = 0; ox < 2; ox++) g[(y + oy) * W + x + ox] = 0;
+  }
+}
+
+function levelSize(depth) {
+  return {
+    W: Math.min(CFG.MAX_W, CFG.BASE_W + CFG.GROW_W * (depth - 1)),
+    H: Math.min(CFG.MAX_H, CFG.BASE_H + CFG.GROW_H * (depth - 1)),
+  };
+}
+
+function pointSegDist2(x, y, segs, s) {
+  const ax = segs[s * 4], ay = segs[s * 4 + 1], bx = segs[s * 4 + 2], by = segs[s * 4 + 3];
+  const ex = bx - ax, ey = by - ay;
+  const l2 = ex * ex + ey * ey;
+  let t = l2 > 0 ? ((x - ax) * ex + (y - ay) * ey) / l2 : 0;
+  t = t < 0 ? 0 : t > 1 ? 1 : t;
+  const cx = ax + ex * t - x, cy = ay + ey * t - y;
+  return cx * cx + cy * cy;
+}
+
+function distToWallsIn(lv, x, y, maxR) {
+  const T = lv.T;
+  const a0 = Math.max(0, Math.floor((x - maxR) / T - 0.5)), a1 = Math.min(lv.SW - 1, Math.floor((x + maxR) / T - 0.5));
+  const b0 = Math.max(0, Math.floor((y - maxR) / T - 0.5)), b1 = Math.min(lv.SH - 1, Math.floor((y + maxR) / T - 0.5));
+  let best = maxR * maxR;
+  for (let b = b0; b <= b1; b++) for (let a = a0; a <= a1; a++) {
+    const sq = b * lv.SW + a;
+    for (let k = lv.sqStart[sq], k1 = lv.sqStart[sq + 1]; k < k1; k++) {
+      const d2 = pointSegDist2(x, y, lv.segs, lv.sqSegs[k]);
+      if (d2 < best) best = d2;
+    }
+  }
+  return Math.sqrt(best);
+}
+
+// BFS over cells the player can physically fit through (cell centre + edge midpoint clearance).
+function bfsPassable(lv, start, need) {
+  const { W, H, clr, midH, midV } = lv;
+  const dist = new Int32Array(W * H).fill(-1), parent = new Int32Array(W * H).fill(-1);
+  const q = new Int32Array(W * H);
+  let qh = 0, qt = 0;
+  dist[start] = 0; q[qt++] = start;
+  while (qh < qt) {
+    const c = q[qh++], x = c % W, d = dist[c] + 1;
+    if (x < W - 1 && dist[c + 1] < 0 && clr[c + 1] >= need && midH[c] >= need) { dist[c + 1] = d; parent[c + 1] = c; q[qt++] = c + 1; }
+    if (x > 0 && dist[c - 1] < 0 && clr[c - 1] >= need && midH[c - 1] >= need) { dist[c - 1] = d; parent[c - 1] = c; q[qt++] = c - 1; }
+    if (c + W < W * H && dist[c + W] < 0 && clr[c + W] >= need && midV[c] >= need) { dist[c + W] = d; parent[c + W] = c; q[qt++] = c + W; }
+    if (c - W >= 0 && dist[c - W] < 0 && clr[c - W] >= need && midV[c - W] >= need) { dist[c - W] = d; parent[c - W] = c; q[qt++] = c - W; }
+  }
+  return { dist, parent };
+}
+
+function creatureCounts(depth) {
+  return {
+    crawler: depth === 1 ? 1 : depth <= 4 ? 2 : Math.min(7, 3 + Math.floor((depth - 5) / 2)),
+    stalker: depth < 3 ? 0 : depth <= 4 ? 1 : Math.min(5, 2 + Math.floor((depth - 5) / 3)),
+    listener: depth < 4 ? 0 : depth <= 5 ? 1 : Math.min(4, 2 + Math.floor((depth - 6) / 4)),
+  };
+}
+
+function tryGenerateLevel(seed, depth, opts) {
+  const T = CFG.TILE, rng = new RNG(seed);
+  const { W, H } = opts && opts.size ? opts.size : levelSize(depth);
+  const N = W * H;
+
+  // — Cellular automata —
+  let g = new Uint8Array(N);
+  const fill = 0.45 + rng.range(-0.015, 0.02);
+  for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
+    const border = x === 0 || y === 0 || x === W - 1 || y === H - 1;
+    g[y * W + x] = border || rng.float() < fill ? 1 : 0;
+  }
+  for (let it = 0; it < 7; it++) {
+    const n = new Uint8Array(N);
+    for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
+      const i = y * W + x;
+      if (x === 0 || y === 0 || x === W - 1 || y === H - 1) { n[i] = 1; continue; }
+      let r1 = 0, r2 = 0;
+      for (let dy = -2; dy <= 2; dy++) for (let dx = -2; dx <= 2; dx++) {
+        const xx = x + dx, yy = y + dy;
+        const w = xx < 0 || yy < 0 || xx >= W || yy >= H ? 1 : g[yy * W + xx];
+        r2 += w;
+        if (dx >= -1 && dx <= 1 && dy >= -1 && dy <= 1) r1 += w;
+      }
+      n[i] = it < 4 ? (r1 >= 5 || r2 <= 2 ? 1 : 0) : (r1 >= 5 ? 1 : 0);
+    }
+    g = n;
+  }
+
+  // — Connect regions: tunnel sizeable pockets into the main cave, fill the crumbs —
+  let { regions } = labelRegions(g, W, H);
+  if (!regions.length) return null;
+  regions.sort((p, q) => q.length - p.length);
+  const main = regions[0];
+  for (let r = 1; r < regions.length; r++) {
+    const reg = regions[r];
+    if (reg.length < 14) { for (const c of reg) g[c] = 1; continue; }
+    const a = rng.pick(reg), ax = a % W, ay = (a / W) | 0;
+    let best = main[0], bd = Infinity;
+    for (let k = 0; k < main.length; k += 2) {
+      const c = main[k], dx = (c % W) - ax, dy = ((c / W) | 0) - ay, d = dx * dx + dy * dy;
+      if (d < bd) { bd = d; best = c; }
+    }
+    carveTunnel(g, W, H, ax, ay, best % W, (best / W) | 0, rng);
+  }
+
+  // — Widen 1-cell corridors so everything fits comfortably —
+  for (let pass = 0; pass < 2; pass++) {
+    for (let y = 1; y < H - 1; y++) for (let x = 1; x < W - 1; x++) {
+      const i = y * W + x;
+      if (g[i]) continue;
+      if (g[i - W] && g[i + W]) {
+        if (y - 1 > 0 && (y + 1 >= H - 1 || rng.chance(0.5))) g[i - W] = 0; else if (y + 1 < H - 1) g[i + W] = 0;
+      }
+      if (g[i - 1] && g[i + 1]) {
+        if (x - 1 > 0 && (x + 1 >= W - 1 || rng.chance(0.5))) g[i - 1] = 0; else if (x + 1 < W - 1) g[i + 1] = 0;
+      }
+    }
+  }
+  ({ regions } = labelRegions(g, W, H));
+  regions.sort((p, q) => q.length - p.length);
+  for (let r = 1; r < regions.length; r++) for (const c of regions[r]) g[c] = 1;
+  const mainSize = regions[0].length;
+  if (mainSize < 0.34 * (W - 2) * (H - 2)) return null;
+
+  // — Marching squares with organically jittered crossings (bounded so corridors never pinch) —
+  const cxArr = new Float32Array(N), cyArr = new Float32Array(N);
+  for (let j = 0; j < H; j++) for (let i = 0; i < W; i++) {
+    const jx = (valueNoise(i * 0.43 + 31.7, j * 0.43, seed) - 0.5) * 0.24 + (hash3(i, j, 0, seed) - 0.5) * 0.1;
+    const jy = (valueNoise(i * 0.43, j * 0.43 - 11.1, seed ^ 0x9e37) - 0.5) * 0.24 + (hash3(i, j, 1, seed) - 0.5) * 0.1;
+    cxArr[j * W + i] = (i + 1 + jx) * T;
+    cyArr[j * W + i] = (j + 1 + jy) * T;
+  }
+  const isWall = (i, j) => g[j * W + i];
+  const crossX = (i, j) => cxArr[j * W + i];
+  const crossY = (i, j) => cyArr[j * W + i];
+  const ms = marchSquares(W, H, T, isWall, crossX, crossY);
+
+  const lv = {
+    seed, depth, W, H, T, grid: g, isWall, crossX, crossY, ...ms,
+    litAt: new Float32Array(ms.nSegs).fill(-1e9), litDur: new Float32Array(ms.nSegs).fill(1),
+    litStr: new Float32Array(ms.nSegs), litSrc: new Uint8Array(ms.nSegs), flareLit: new Float32Array(ms.nSegs),
+  };
+
+  // — Clearance: distance from each floor cell centre (and edge midpoint) to the nearest wall —
+  const clr = new Float32Array(N), midH = new Float32Array(N), midV = new Float32Array(N);
+  const CAP = 2.5 * T;
+  for (let j = 1; j < H - 1; j++) for (let i = 1; i < W - 1; i++) {
+    const c = j * W + i;
+    if (g[c]) continue;
+    const x = (i + 0.5) * T, y = (j + 0.5) * T;
+    clr[c] = distToWallsIn(lv, x, y, CAP);
+    if (!g[c + 1]) midH[c] = distToWallsIn(lv, x + T / 2, y, CAP);
+    if (!g[c + W]) midV[c] = distToWallsIn(lv, x, y + T / 2, CAP);
+  }
+  lv.clr = clr; lv.midH = midH; lv.midV = midV;
+
+  // — Start & exit: double-sweep BFS for a long route, then pick the exit near the far end —
+  const need = CFG.PLAYER_R + 2.5;
+  const open = [];
+  for (let c = 0; c < N; c++) if (clr[c] >= 26) open.push(c);
+  if (open.length < 20) return null;
+  const farthest = (dist) => { let bc = -1, bd = -1; for (const c of open) if (dist[c] > bd) { bd = dist[c]; bc = c; } return bc; };
+  let bf = bfsPassable(lv, rng.pick(open), need);
+  const A = farthest(bf.dist);
+  if (A < 0) return null;
+  bf = bfsPassable(lv, A, need);
+  let maxD = 0;
+  for (const c of open) if (bf.dist[c] > maxD) maxD = bf.dist[c];
+  if (maxD < 34) return null;
+  const exitCands = open.filter((c) => bf.dist[c] >= maxD * 0.84);
+  const E = rng.pick(exitCands);
+  const pathCells = [];
+  for (let c = E; c >= 0; c = bf.parent[c]) pathCells.push(c);
+  pathCells.reverse();
+  if (pathCells[0] !== A) return null;         // exit unreachable (cannot happen, but never ship a broken cave)
+  const distStart = bf.dist;
+  const cellXY = (c) => ({ x: ((c % W) + 0.5) * T, y: (((c / W) | 0) + 0.5) * T });
+
+  // Distance (in cells) from the critical path, via multi-source BFS over floor
+  const pathDist = new Int32Array(N).fill(-1);
+  {
+    const q = new Int32Array(N); let qh = 0, qt = 0;
+    for (const c of pathCells) { pathDist[c] = 0; q[qt++] = c; }
+    while (qh < qt) {
+      const c = q[qh++];
+      for (const nb of [c - 1, c + 1, c - W, c + W]) if (!g[nb] && pathDist[nb] < 0) { pathDist[nb] = pathDist[c] + 1; q[qt++] = nb; }
+    }
+  }
+  const progress = (c) => distStart[c] / maxD;
+
+  // — Creature walk grid (clearance for a creature body) + largest connected component —
+  const walk = new Uint8Array(N);
+  for (let c = 0; c < N; c++) walk[c] = clr[c] >= CFG.CREATURE_CLEAR ? 1 : 0;
+  const walkComp = new Int32Array(N).fill(-1);
+  let bestComp = -1, bestCompSize = 0;
+  {
+    const q = new Int32Array(N); let id = 0;
+    for (let s = 0; s < N; s++) {
+      if (!walk[s] || walkComp[s] >= 0) continue;
+      let qh = 0, qt = 0; q[qt++] = s; walkComp[s] = id;
+      while (qh < qt) {
+        const c = q[qh++];
+        for (const nb of [c - 1, c + 1, c - W, c + W]) if (walk[nb] && walkComp[nb] < 0) { walkComp[nb] = id; q[qt++] = nb; }
+      }
+      if (qt > bestCompSize) { bestCompSize = qt; bestComp = id; }
+      id++;
+    }
+  }
+  lv.walk = walk; lv.walkComp = walkComp; lv.mainComp = bestComp;
+
+  // — Placement —
+  const taken = [A, E];
+  const farFrom = (c, list, minCells) => {
+    const x = c % W, y = (c / W) | 0;
+    for (const o of list) { const dx = (o % W) - x, dy = ((o / W) | 0) - y; if (dx * dx + dy * dy < minCells * minCells) return false; }
+    return true;
+  };
+  const scatter = (cands, count, sep) => {
+    const out = [];
+    rng.shuffle(cands);
+    for (const c of cands) {
+      if (out.length >= count) break;
+      if (farFrom(c, taken, sep) && farFrom(c, out, sep)) out.push(c);
+    }
+    for (const c of out) taken.push(c);
+    return out;
+  };
+  const reach = (c) => distStart[c] >= 0;
+
+  // Creatures first so pickups never sit on top of them
+  const counts = creatureCounts(depth);
+  const minStart = depth === 1 ? Math.max(20, maxD * 0.5) : Math.max(15, maxD * 0.27);
+  const creatureBase = [];
+  for (let c = 0; c < N; c++) if (walk[c] && walkComp[c] === bestComp && clr[c] >= 18 && reach(c) && distStart[c] >= minStart) creatureBase.push(c);
+  const pickCreature = (filter, count, sep) => {
+    let out = scatter(creatureBase.filter(filter), count, sep);
+    if (out.length < count) out = out.concat(scatter(creatureBase.slice(), count - out.length, sep - 2));
+    return out;
+  };
+  const spawns = [];
+  // Stalkers and Listeners sit beside the route — close enough to matter, never corking a corridor
+  for (const c of pickCreature((c) => pathDist[c] >= 3 && pathDist[c] <= 6 && progress(c) > 0.3 && progress(c) < 0.92, counts.listener, 9)) spawns.push({ type: 'listener', ...cellXY(c) });
+  for (const c of pickCreature((c) => pathDist[c] >= 3 && pathDist[c] <= 8 && progress(c) > 0.35 && progress(c) < 0.96, counts.stalker, 8)) spawns.push({ type: 'stalker', ...cellXY(c) });
+  for (const c of pickCreature(() => true, counts.crawler, 8)) spawns.push({ type: 'crawler', ...cellXY(c) });
+
+  const shardCands = [];
+  for (let c = 0; c < N; c++) if (!g[c] && clr[c] >= 11 && reach(c) && distStart[c] >= 4) shardCands.push(c);
+  const shards = scatter(shardCands, Math.min(18, 6 + depth), 6).map(cellXY);
+
+  let flareCount = depth === 1 ? 1 : (rng.chance(0.65) ? 1 : 0) + (depth >= 6 && rng.chance(0.35) ? 1 : 0);
+  const flareCands = shardCands.filter((c) => pathDist[c] <= 3 && progress(c) > 0.18 && progress(c) < (depth === 1 ? 0.45 : 0.85));
+  let flareCells = scatter(flareCands, flareCount, 6);
+  if (flareCells.length < flareCount) flareCells = flareCells.concat(scatter(shardCands.slice(), flareCount - flareCells.length, 5));
+  const flares = flareCells.map(cellXY);
+
+  Object.assign(lv, {
+    start: cellXY(A), exit: cellXY(E), startCell: A, exitCell: E,
+    distStart, maxD, pathCells, pathDist, spawns, shards, flares,
+  });
+  return lv;
+}
+
+function generateLevel(runSeed, depth, opts) {
+  for (let attempt = 0; attempt < 80; attempt++) {
+    const seed = hashU32((runSeed ^ Math.imul(depth + 1, 0x9E3779B1)) + Math.imul(attempt + 1, 0x85EBCA77));
+    const lv = tryGenerateLevel(seed, depth, opts);
+    if (lv) { lv.attempts = attempt + 1; return lv; }
+  }
+  throw new Error('ECHO: cave generation failed');
+}
+
+/* ═══════════════════════════ 5. GEOMETRY ═══════════════════════════ */
+let L = null;                                   // the current level
+const RAY = { t: 0, seg: -1 };
+const _px = new Float64Array(8), _py = new Float64Array(8), _pc = new Uint8Array(8);
+
+// Walks the dual grid along the ray; the first square containing a hit holds the nearest hit.
+function raycast(x0, y0, dx, dy, maxDist) {
+  const T = L.T, SW = L.SW, SH = L.SH, segs = L.segs, sqStart = L.sqStart, sqSegs = L.sqSegs;
+  const u = x0 / T - 0.5, v = y0 / T - 0.5;
+  let a = Math.floor(u), b = Math.floor(v);
+  const stepA = dx > 0 ? 1 : -1, stepB = dy > 0 ? 1 : -1;
+  const tdA = dx !== 0 ? Math.abs(T / dx) : Infinity, tdB = dy !== 0 ? Math.abs(T / dy) : Infinity;
+  let tmA = dx > 0 ? (a + 1 - u) * T / dx : dx < 0 ? (u - a) * T / -dx : Infinity;
+  let tmB = dy > 0 ? (b + 1 - v) * T / dy : dy < 0 ? (v - b) * T / -dy : Infinity;
+  let t = 0;
+  for (let guard = 0; guard < 4096 && t <= maxDist; guard++) {
+    if (a < 0 || b < 0 || a >= SW || b >= SH) { RAY.t = t; RAY.seg = -1; return t <= maxDist; }
+    const sq = b * SW + a;
+    let best = Infinity, bestSeg = -1;
+    for (let k = sqStart[sq], k1 = sqStart[sq + 1]; k < k1; k++) {
+      const s = sqSegs[k], o = s * 4;
+      const ax = segs[o], ay = segs[o + 1], ex = segs[o + 2] - ax, ey = segs[o + 3] - ay;
+      const den = dx * ey - dy * ex;
+      if (den > -1e-9 && den < 1e-9) continue;
+      const wx = ax - x0, wy = ay - y0;
+      const tt = (wx * ey - wy * ex) / den;
+      const ss = (wx * dy - wy * dx) / den;
+      if (tt >= 0 && ss >= 0 && ss <= 1 && tt < best) { best = tt; bestSeg = s; }
+    }
+    if (bestSeg >= 0) { RAY.t = best; RAY.seg = bestSeg; return best <= maxDist; }
+    if (tmA < tmB) { t = tmA; tmA += tdA; a += stepA; } else { t = tmB; tmB += tdB; b += stepB; }
+  }
+  return false;
+}
+
+function los(x0, y0, x1, y1) {
+  const dx = x1 - x0, dy = y1 - y0, d = Math.hypot(dx, dy);
+  if (d < 1e-3) return true;
+  return !raycast(x0, y0, dx / d, dy / d, d - 0.5);
+}
+
+// A corridor of width 2r is clear between two points (centre + both flanks).
+function clearPath(x0, y0, x1, y1, r) {
+  const dx = x1 - x0, dy = y1 - y0, d = Math.hypot(dx, dy);
+  if (d < 1e-3) return true;
+  const ux = dx / d, uy = dy / d, nx = -uy * r, ny = ux * r;
+  return !raycast(x0, y0, ux, uy, d) && !raycast(x0 + nx, y0 + ny, ux, uy, d) && !raycast(x0 - nx, y0 - ny, ux, uy, d);
+}
+
+function isSolid(x, y) {
+  const T = L.T, a = Math.floor(x / T - 0.5), b = Math.floor(y / T - 0.5);
+  if (a < 0 || b < 0 || a >= L.SW || b >= L.SH) return true;
+  const n = squarePolygon(a, b, T, L.isWall, L.crossX, L.crossY, _px, _py, _pc);
+  if (n === 0) return false;
+  if (n < 0) return true;
+  let inside = false;
+  for (let k = 0, m = n - 1; k < n; m = k++) {
+    if ((_py[k] > y) !== (_py[m] > y) && x < (_px[m] - _px[k]) * (y - _py[k]) / (_py[m] - _py[k]) + _px[k]) inside = !inside;
+  }
+  return inside;
+}
+
+function distToWalls(x, y, maxR) { return distToWallsIn(L, x, y, maxR); }
+
+// Circle vs wall segments with sliding. Returns the largest into-wall speed removed (for bump noise).
+function collideCircle(e, r) {
+  const T = L.T, segs = L.segs, segN = L.segN;
+  let impact = 0;
+  for (let iter = 0; iter < 4; iter++) {
+    let moved = false;
+    const a0 = Math.max(0, Math.floor((e.x - r) / T - 0.5)), a1 = Math.min(L.SW - 1, Math.floor((e.x + r) / T - 0.5));
+    const b0 = Math.max(0, Math.floor((e.y - r) / T - 0.5)), b1 = Math.min(L.SH - 1, Math.floor((e.y + r) / T - 0.5));
+    for (let b = b0; b <= b1; b++) for (let a = a0; a <= a1; a++) {
+      const sq = b * L.SW + a;
+      for (let k = L.sqStart[sq], k1 = L.sqStart[sq + 1]; k < k1; k++) {
+        const s = L.sqSegs[k], o = s * 4;
+        const ax = segs[o], ay = segs[o + 1], ex = segs[o + 2] - ax, ey = segs[o + 3] - ay;
+        const l2 = ex * ex + ey * ey;
+        let t = l2 > 0 ? ((e.x - ax) * ex + (e.y - ay) * ey) / l2 : 0;
+        t = t < 0 ? 0 : t > 1 ? 1 : t;
+        const cx = ax + ex * t, cy = ay + ey * t;
+        let dx = e.x - cx, dy = e.y - cy;
+        const d2 = dx * dx + dy * dy;
+        if (d2 >= r * r) continue;
+        let nx, ny, push;
+        const snx = segN[s * 2], sny = segN[s * 2 + 1];
+        const side = (e.x - ax) * snx + (e.y - ay) * sny;
+        if (side < 0 && t > 0 && t < 1) { nx = snx; ny = sny; push = r - side; }       // centre slipped behind the wall
+        else if (d2 > 1e-8) { const d = Math.sqrt(d2); nx = dx / d; ny = dy / d; push = r - d; }
+        else { nx = snx; ny = sny; push = r; }
+        e.x += nx * push; e.y += ny * push;
+        const vn = e.vx * nx + e.vy * ny;
+        if (vn < 0) { e.vx -= vn * nx; e.vy -= vn * ny; if (-vn > impact) impact = -vn; }
+        moved = true;
+      }
+    }
+    if (!moved) break;
+  }
+  if (isSolid(e.x, e.y)) {
+    if (e.safeX !== undefined && !isSolid(e.safeX, e.safeY)) { e.x = e.safeX; e.y = e.safeY; e.vx *= -0.2; e.vy *= -0.2; }
+    else rescueFromRock(e, r);
+  } else { e.safeX = e.x; e.safeY = e.y; }
+  return impact;
+}
+
+// Last resort: move an entity embedded in rock to the nearest open cell centre.
+function rescueFromRock(e, r) {
+  const W = L.W, T = L.T, cx = clamp(Math.floor(e.x / T), 0, W - 1), cy = clamp(Math.floor(e.y / T), 0, L.H - 1);
+  for (let rad = 0; rad < 12; rad++) {
+    let best = -1, bd = Infinity;
+    for (let dy = -rad; dy <= rad; dy++) for (let dx = -rad; dx <= rad; dx++) {
+      if (Math.max(Math.abs(dx), Math.abs(dy)) !== rad) continue;
+      const x = cx + dx, y = cy + dy;
+      if (x < 1 || y < 1 || x >= W - 1 || y >= L.H - 1) continue;
+      const c = y * W + x;
+      if (L.clr[c] < r + 2) continue;
+      const d = Math.hypot((x + 0.5) * T - e.x, (y + 0.5) * T - e.y);
+      if (d < bd) { bd = d; best = c; }
+    }
+    if (best >= 0) {
+      e.x = e.safeX = ((best % W) + 0.5) * T; e.y = e.safeY = (((best / W) | 0) + 0.5) * T;
+      e.vx = 0; e.vy = 0;
+      return;
+    }
+  }
+}
+
+/* ═══════════════════════════ 6. PATHFINDING ═══════════════════════════ */
+// A* over the creature walk grid (8-connected, no corner cutting). Typed arrays are reused between
+// searches via a stamp, so repaths allocate nothing but the returned path. If the target can't be
+// reached, the path leads to the explored cell closest to it.
+const PF = { cap: 0, g: null, parent: null, seen: null, closed: null, stamp: 0, heap: null, heapF: null, size: 0 };
+function pfEnsure(N) {
+  if (PF.cap >= N) return;
+  PF.cap = N;
+  PF.g = new Float32Array(N); PF.parent = new Int32Array(N);
+  PF.seen = new Uint32Array(N); PF.closed = new Uint32Array(N);
+  PF.heap = new Int32Array(N * 8); PF.heapF = new Float32Array(N * 8);
+}
+function heapPush(c, f) {
+  if (PF.size >= PF.heap.length) return;
+  let i = PF.size++;
+  while (i > 0) {
+    const p = (i - 1) >> 1;
+    if (PF.heapF[p] <= f) break;
+    PF.heap[i] = PF.heap[p]; PF.heapF[i] = PF.heapF[p]; i = p;
+  }
+  PF.heap[i] = c; PF.heapF[i] = f;
+}
+function heapPop() {
+  const top = PF.heap[0], last = PF.heap[--PF.size], lf = PF.heapF[PF.size];
+  let i = 0;
+  for (;;) {
+    let c = 2 * i + 1;
+    if (c >= PF.size) break;
+    if (c + 1 < PF.size && PF.heapF[c + 1] < PF.heapF[c]) c++;
+    if (PF.heapF[c] >= lf) break;
+    PF.heap[i] = PF.heap[c]; PF.heapF[i] = PF.heapF[c]; i = c;
+  }
+  PF.heap[i] = last; PF.heapF[i] = lf;
+  return top;
+}
+function cellAt(x, y) {
+  const i = clamp(Math.floor(x / L.T), 0, L.W - 1), j = clamp(Math.floor(y / L.T), 0, L.H - 1);
+  return j * L.W + i;
+}
+function cellCenter(c) { return { x: ((c % L.W) + 0.5) * L.T, y: (((c / L.W) | 0) + 0.5) * L.T }; }
+function nearestWalkable(c, comp) {
+  const W = L.W, cx = c % W, cy = (c / W) | 0;
+  const ok = (n) => L.walk[n] && (comp < 0 || L.walkComp[n] === comp);
+  if (ok(c)) return c;
+  for (let r = 1; r <= 4; r++) {
+    let best = -1, bd = Infinity;
+    for (let dy = -r; dy <= r; dy++) for (let dx = -r; dx <= r; dx++) {
+      if (Math.max(Math.abs(dx), Math.abs(dy)) !== r) continue;
+      const x = cx + dx, y = cy + dy;
+      if (x < 0 || y < 0 || x >= W || y >= L.H) continue;
+      const n = y * W + x, d = dx * dx + dy * dy;
+      if (ok(n) && d < bd) { bd = d; best = n; }
+    }
+    if (best >= 0) return best;
+  }
+  return -1;
+}
+function findPath(sx, sy, tx, ty, maxExpand = 3500) {
+  const W = L.W, walk = L.walk;
+  pfEnsure(L.W * L.H);
+  const s = nearestWalkable(cellAt(sx, sy), -1);
+  if (s < 0) return null;
+  const comp = L.walkComp[s];
+  let t = nearestWalkable(cellAt(tx, ty), comp);
+  const tcx = t >= 0 ? t % W : Math.floor(tx / L.T), tcy = t >= 0 ? (t / W) | 0 : Math.floor(ty / L.T);
+  const h = (c) => { const dx = Math.abs((c % W) - tcx), dy = Math.abs(((c / W) | 0) - tcy); return dx + dy - 0.5858 * Math.min(dx, dy); };
+  const stamp = ++PF.stamp;
+  PF.size = 0;
+  PF.g[s] = 0; PF.seen[s] = stamp; PF.parent[s] = -1;
+  heapPush(s, h(s));
+  let bestNode = s, bestH = h(s), expanded = 0;
+  while (PF.size > 0 && expanded < maxExpand) {
+    const c = heapPop();
+    if (PF.closed[c] === stamp) continue;
+    PF.closed[c] = stamp; expanded++;
+    if (c === t) { bestNode = t; break; }
+    const hc = h(c);
+    if (hc < bestH) { bestH = hc; bestNode = c; }
+    const cx = c % W;
+    for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) {
+      if (!dx && !dy) continue;
+      if ((cx === 0 && dx < 0) || (cx === W - 1 && dx > 0)) continue;
+      const n = c + dy * W + dx;
+      if (n < 0 || n >= walk.length || !walk[n] || PF.closed[n] === stamp) continue;
+      if (dx && dy) { if (!walk[c + dx] || !walk[c + dy * W]) continue; }
+      else if (dx) { if (L.midH[dx > 0 ? c : n] < CFG.CREATURE_CLEAR - 2) continue; }
+      else if (L.midV[dy > 0 ? c : n] < CFG.CREATURE_CLEAR - 2) continue;
+      const ng = PF.g[c] + (dx && dy ? 1.4142 : 1);
+      if (PF.seen[n] !== stamp || ng < PF.g[n]) {
+        PF.seen[n] = stamp; PF.g[n] = ng; PF.parent[n] = c;
+        heapPush(n, ng + h(n));
+      }
+    }
+  }
+  const cells = [];
+  for (let c = bestNode; c !== s && c >= 0; c = PF.parent[c]) cells.push(c);
+  cells.reverse();
+  return cells;
+}
+// String-pull grid waypoints into as few straight, body-wide-clear legs as possible.
+function smoothPath(sx, sy, cells, r) {
+  const pts = cells.map(cellCenter), out = [];
+  let ax = sx, ay = sy, i = 0;
+  while (i < pts.length) {
+    let j = Math.min(pts.length - 1, i + 7);
+    while (j > i && !clearPath(ax, ay, pts[j].x, pts[j].y, r)) j--;
+    out.push(pts[j]); ax = pts[j].x; ay = pts[j].y; i = j + 1;
+  }
+  return out;
+}
+
+/* ═══════════════════════════ 7. WORLD ═══════════════════════════ */
+const G = {
+  state: 'title',
+  time: 0, realTime: 0, timeScale: 1, slowTimer: 0,
+  lvl: null, runSeed: 0, depth: 1, shards: 0,
+  player: null, pings: [], ghosts: [], particles: [], flares: [], pickups: [], creatures: [], stepRings: [], shockRings: [],
+  exit: null, killer: null, deathAt: 0, tension: 0,
+  cam: { x: 0, y: 0, px: 0, py: 0 }, shake: 0, flash: 0,
+  levelStart: 0, levelShards: 0,
+};
+
+function newPlayer(x, y) {
+  return {
+    x, y, px: x, py: y, vx: 0, vy: 0, safeX: x, safeY: y, alive: true,
+    creeping: false, charging: false, charge: 0, holdT: 0, pingCD: 0, queued: 0,
+    stepT: 0, noise: 0, flares: 0, face: 0,
+  };
+}
+
+function segBright(s, t) {
+  const age = t - L.litAt[s], dur = L.litDur[s];
+  if (age < 0 || age >= dur) return 0;
+  let b = L.litStr[s] * Math.pow(1 - age / dur, 1.4);
+  if (age < 0.14) b *= 1 + (1 - age / 0.14) * 0.55;          // strike flash as the ring hits
+  return b;
+}
+function lightSeg(s, str, dur, src) {
+  if (str >= segBright(s, G.time) * 0.9) { L.litAt[s] = G.time; L.litStr[s] = str; L.litDur[s] = dur; L.litSrc[s] = src; }
+}
+
+// A ping casts rays outward; the first wall each ray meets is queued by distance and lit when the ring arrives.
+function createPing(src, x, y, o) {
+  const span = o.half ? o.half * 2 : TAU, a0 = o.half ? o.ang - o.half : 0;
+  const nRays = Math.max(24, Math.ceil(span * o.radius / 3));
+  const best = new Map();
+  for (let k = 0; k < nRays; k++) {
+    const a = a0 + span * (k + 0.5) / nRays;
+    if (raycast(x, y, Math.cos(a), Math.sin(a), o.radius) && RAY.seg >= 0) {
+      const prev = best.get(RAY.seg);
+      if (prev === undefined || RAY.t < prev) best.set(RAY.seg, RAY.t);
+    }
+  }
+  const ent = Array.from(best).sort((p, q) => p[1] - q[1]);
+  const n = ent.length, segs = new Int32Array(n), dist = new Float32Array(n);
+  for (let i = 0; i < n; i++) { segs[i] = ent[i][0]; dist[i] = ent[i][1]; }
+  const ping = {
+    src, x, y, t0: G.time, radius: o.radius, speed: o.speed, reveal: o.reveal, strength: o.strength,
+    ang: o.ang || 0, half: o.half || 0, segs, dist, n, hi: 0, prevR: 0, owner: o.owner || null, kind: o.kind || 'normal',
+  };
+  G.pings.push(ping);
+  return ping;
+}
+
+function inCone(pg, x, y) {
+  if (!pg.half) return true;
+  return Math.abs(angDiff(Math.atan2(y - pg.y, x - pg.x), pg.ang)) <= pg.half;
+}
+
+function pingTouches(pg, x, y, r0, r1) {
+  const d = Math.hypot(x - pg.x, y - pg.y);
+  return d > r0 && d <= r1 && inCone(pg, x, y) && los(pg.x, pg.y, x, y);
+}
+
+function updatePings() {
+  const now = G.time;
+  for (let i = G.pings.length - 1; i >= 0; i--) {
+    const pg = G.pings[i];
+    const r = Math.min(pg.radius, (now - pg.t0) * pg.speed);
+    const src = pg.src === 'listener' ? 1 : 0;
+    while (pg.hi < pg.n && pg.dist[pg.hi] <= r) {
+      const s = pg.segs[pg.hi], d = pg.dist[pg.hi++], f = d / pg.radius;
+      lightSeg(s, pg.strength * (1 - 0.5 * f), pg.reveal * (1 - 0.25 * f), src);
+    }
+    if (r > pg.prevR) {
+      for (const pk of G.pickups) if (!pk.taken && pingTouches(pg, pk.x, pk.y, pg.prevR, r)) { pk.revealAt = now; pk.revealDur = pg.reveal + 0.6; onPickupRevealed(pk); }
+      const ex = G.exit;
+      if (ex && pingTouches(pg, ex.x, ex.y, pg.prevR, r)) { ex.revealAt = now; ex.revealDur = pg.reveal + 1.2; onExitRevealed(); }
+      pingTouchCreatures(pg, pg.prevR, r);
+    }
+    pg.prevR = r;
+    if (r >= pg.radius) G.pings.splice(i, 1);
+  }
+}
+
+// Every sound the player makes goes through here. Rock muffles sound: without line of sight a
+// creature hears only 60% as far.
+function emitNoise(x, y, radius, kind) {
+  const p = G.player;
+  if (p) p.noise = Math.max(p.noise, radius);
+  if (G.time - G.levelStart < 1.5) return;                 // a moment of grace on arrival
+  for (const c of G.creatures) {
+    const eff = radius * c.hearMul * c.def.hear, d = Math.hypot(c.x - x, c.y - y);
+    if (d > eff) continue;
+    const effR = los(c.x, c.y, x, y) ? eff : eff * 0.6;
+    if (d > effR) continue;
+    c.hear(x, y, 1 - d / effR, kind);
+  }
+}
+
+function firePing(kind, charge) {
+  const p = G.player;
+  let o;
+  if (kind === 'charged') {
+    o = { kind, radius: lerp(CFG.PING_R, CFG.CHARGED_R, charge), speed: CFG.PING_SPEED * (1 + 0.25 * charge), reveal: lerp(CFG.PING_REVEAL, CFG.CHARGED_REVEAL, charge), strength: 1, noise: lerp(CFG.PING_NOISE, CFG.CHARGED_NOISE, charge) };
+    p.pingCD = lerp(CFG.PING_CD, CFG.CHARGED_CD, charge);
+    G.shake = Math.max(G.shake, 2 + 4 * charge);
+  } else if (kind === 'dir') {
+    const m = screenToWorld(Input.mouseX, Input.mouseY);
+    const ang = Input.mouseSeen ? Math.atan2(m.y - p.y, m.x - p.x) : p.face;
+    o = { kind, radius: CFG.DIR_R, speed: CFG.PING_SPEED * 1.2, reveal: CFG.DIR_REVEAL, strength: 0.9, noise: CFG.DIR_NOISE, ang, half: CFG.DIR_HALF };
+    p.pingCD = CFG.PING_CD;
+  } else {
+    o = { kind: 'normal', radius: CFG.PING_R, speed: CFG.PING_SPEED, reveal: CFG.PING_REVEAL, strength: 1, noise: CFG.PING_NOISE };
+    p.pingCD = CFG.PING_CD;
+  }
+  p.lastCD = p.pingCD;
+  createPing('player', p.x, p.y, o);
+  emitNoise(p.x, p.y, o.noise, 'ping');
+}
+
+function igniteFlare(f) {
+  const R = CFG.FLARE_R, nRays = Math.ceil(TAU * R / 2.5);
+  for (let k = 0; k < nRays; k++) {
+    const a = TAU * k / nRays;
+    if (raycast(f.x, f.y, Math.cos(a), Math.sin(a), R) && RAY.seg >= 0) {
+      const v = 0.28 + 0.6 * Math.pow(1 - RAY.t / R, 0.8);
+      if (v > L.flareLit[RAY.seg]) L.flareLit[RAY.seg] = v;
+    }
+  }
+  const inLight = (x, y) => Math.hypot(x - f.x, y - f.y) < R && los(f.x, f.y, x, y);
+  for (const pk of G.pickups) if (!pk.taken && inLight(pk.x, pk.y)) pk.lit = true;
+  if (G.exit && inLight(G.exit.x, G.exit.y)) G.exit.lit = true;
+}
+
+function placeFlare() {
+  const p = G.player;
+  if (!p.alive || p.flares <= 0) return;
+  p.flares--;
+  const f = { x: p.x, y: p.y, t0: G.time, seed: FX.float() * 1000 };
+  G.flares.push(f);
+  igniteFlare(f);
+  emitNoise(p.x, p.y, 70, 'flare');
+  Audio.flare();
+  HUD.flareFlash = 1;
+  onFlarePlaced();
+  for (let i = 0; i < 26; i++) {
+    const a = FX.float() * TAU, s = 30 + FX.float() * 120;
+    spawnParticle(f.x, f.y, Math.cos(a) * s, Math.sin(a) * s, 0.5 + FX.float() * 0.6, 215, 255, 220, 1.6);
+  }
+}
+
+function collectPickup(pk) {
+  pk.taken = true;
+  const p = G.player;
+  if (pk.kind === 'shard') {
+    G.shards++; G.levelShards++;
+    for (let i = 0; i < 18; i++) {
+      const a = FX.float() * TAU, s = 40 + FX.float() * 110;
+      spawnParticle(pk.x, pk.y, Math.cos(a) * s, Math.sin(a) * s, 0.4 + FX.float() * 0.5, 220, 232, 255, 1.4);
+    }
+    emitNoise(pk.x, pk.y, 55, 'pickup');
+    Audio.pickup('shard');
+    HUD.shardFlash = 1;
+  } else {
+    Audio.pickup('flare');
+    HUD.flareFlash = 1;
+    Hints.show('flare', 'A flare. Press F to plant it — it lights the rock around it for good.', 5.5);
+    p.flares++;
+    for (let i = 0; i < 14; i++) {
+      const a = FX.float() * TAU, s = 30 + FX.float() * 90;
+      spawnParticle(pk.x, pk.y, Math.cos(a) * s, Math.sin(a) * s, 0.5 + FX.float() * 0.4, 215, 255, 220, 1.4);
+    }
+  }
+}
+
+function updatePlayer(dt) {
+  const p = G.player;
+  p.pingCD = Math.max(0, p.pingCD - dt);
+  p.noise = Math.max(0, p.noise - dt * Math.max(140, p.noise * 1.6));
+  if (!p.alive) { p.vx *= 0.9; p.vy *= 0.9; return; }
+
+  let ix = 0, iy = 0;
+  if (Input.down('KeyA', 'ArrowLeft')) ix -= 1;
+  if (Input.down('KeyD', 'ArrowRight')) ix += 1;
+  if (Input.down('KeyW', 'ArrowUp')) iy -= 1;
+  if (Input.down('KeyS', 'ArrowDown')) iy += 1;
+  const il = Math.hypot(ix, iy);
+  if (il > 0) { ix /= il; iy /= il; }
+  p.creeping = Input.down('KeyC', 'ControlLeft', 'ControlRight');
+  let maxS = p.creeping ? CFG.CREEP_SPEED : CFG.SPEED;
+  if (p.charging) maxS *= CFG.CHARGE_SPEED_MUL;
+
+  if (il > 0) {
+    const tx = ix * maxS - p.vx, ty = iy * maxS - p.vy, tl = Math.hypot(tx, ty), step = CFG.ACCEL * dt;
+    if (tl <= step) { p.vx = ix * maxS; p.vy = iy * maxS; } else { p.vx += tx / tl * step; p.vy += ty / tl * step; }
+  } else {
+    const f = Math.exp(-CFG.FRICTION * dt);
+    p.vx *= f; p.vy *= f;
+  }
+  if (il > 0) p.face = Math.atan2(iy, ix);
+  const sp0 = Math.hypot(p.vx, p.vy);
+  if (sp0 > maxS && il > 0) { p.vx *= maxS / sp0; p.vy *= maxS / sp0; }
+  p.x += p.vx * dt; p.y += p.vy * dt;
+  const impact = collideCircle(p, CFG.PLAYER_R);
+  if (impact > CFG.BUMP_NOISE_SPEED && !p.creeping) { emitNoise(p.x, p.y, 80, 'bump'); onBump(impact); }
+
+  // Footsteps
+  const sp = Math.hypot(p.vx, p.vy);
+  if (sp > CFG.STEP_NOISE_MIN_SPEED && !p.creeping) {
+    p.stepT -= dt;
+    if (p.stepT <= 0) {
+      p.stepT = CFG.STEP_INTERVAL;
+      const r = 50 + (sp - CFG.STEP_NOISE_MIN_SPEED) * 1.4;
+      emitNoise(p.x, p.y, r, 'step');
+      G.stepRings.push({ x: p.x, y: p.y, t0: G.time, r });
+      if (G.stepRings.length > 12) G.stepRings.shift();
+      onFootstep(sp);
+    }
+  } else p.stepT = Math.min(p.stepT, 0.06);
+
+  // Pinging: hold to charge, release to fire; directional pings fire on press
+  if (Input.dirPing) {
+    Input.dirPing = false;
+    if (p.pingCD <= 0) { firePing('dir'); onPingFired('dir', 0); } else p.queued = { kind: 'dir', until: G.time + 0.2 };
+  }
+  if (Input.pingHeld) {
+    p.holdT += dt;
+    if (p.pingCD <= 0 && p.holdT > CFG.CHARGE_DELAY) { p.charging = true; p.charge = Math.min(1, p.charge + dt / CFG.CHARGE_TIME); }
+  }
+  if (Input.pingReleased) {
+    Input.pingReleased = false;
+    if (p.pingCD <= 0) {
+      if (p.charging && p.charge > 0.06) { firePing('charged', p.charge); onPingFired('charged', p.charge); }
+      else { firePing('normal', 0); onPingFired('normal', 0); }
+    } else p.queued = { kind: 'normal', until: G.time + 0.18 };
+    p.charging = false; p.charge = 0; p.holdT = 0;
+  }
+  if (p.queued && p.pingCD <= 0) {
+    if (G.time <= p.queued.until) { firePing(p.queued.kind, 0); onPingFired(p.queued.kind, 0); }
+    p.queued = 0;
+  }
+
+  // Pickups & exit
+  for (const pk of G.pickups) {
+    if (pk.taken) continue;
+    if (Math.hypot(pk.x - p.x, pk.y - p.y) < CFG.PLAYER_R + 11) collectPickup(pk);
+  }
+  if (G.exit && Math.hypot(G.exit.x - p.x, G.exit.y - p.y) < CFG.PLAYER_R + 14) reachExit();
+}
+
+
+function updateCamera(dt) {
+  const p = G.player, c = G.cam;
+  c.px = c.x; c.py = c.y;
+  let lx = p.vx * 0.5, ly = p.vy * 0.5;
+  const ll = Math.hypot(lx, ly);
+  if (ll > 90) { lx *= 90 / ll; ly *= 90 / ll; }
+  const k = 1 - Math.exp(-4.5 * dt);
+  c.x += (p.x + lx - c.x) * k;
+  c.y += (p.y + ly - c.y) * k;
+}
+
+// Particles (pooled)
+const MAX_PARTICLES = 600;
+function spawnParticle(x, y, vx, vy, life, r, g, b, size) {
+  let pt;
+  if (G.particles.length < MAX_PARTICLES) { pt = {}; G.particles.push(pt); }
+  else pt = G.particles[(G.particleCursor = ((G.particleCursor || 0) + 1) % MAX_PARTICLES)];
+  pt.x = x; pt.y = y; pt.vx = vx; pt.vy = vy; pt.life = life; pt.max = life; pt.r = r; pt.g = g; pt.b = b; pt.size = size; pt.dead = false;
+}
+function updateParticles(dt) {
+  const drag = Math.exp(-2.6 * dt);
+  for (const pt of G.particles) {
+    if (pt.dead) continue;
+    pt.life -= dt;
+    if (pt.life <= 0) { pt.dead = true; continue; }
+    pt.x += pt.vx * dt; pt.y += pt.vy * dt; pt.vx *= drag; pt.vy *= drag;
+  }
+}
+
+function loadLevel(depth) {
+  G.depth = depth;
+  G.lvl = L = generateLevel(G.runSeed, depth);
+  G.pings.length = 0; G.ghosts.length = 0; G.particles.length = 0; G.flares.length = 0; G.stepRings.length = 0;
+  const keepFlares = G.player ? G.player.flares : 0;
+  G.player = newPlayer(L.start.x, L.start.y);
+  G.player.flares = keepFlares;
+  G.pickups = L.shards.map((s) => ({ kind: 'shard', x: s.x, y: s.y, revealAt: -99, revealDur: 1, lit: false, taken: false, phase: FX.float() * TAU }))
+    .concat(L.flares.map((s) => ({ kind: 'flare', x: s.x, y: s.y, revealAt: -99, revealDur: 1, lit: false, taken: false, phase: FX.float() * TAU })));
+  G.exit = { x: L.exit.x, y: L.exit.y, revealAt: -99, revealDur: 1, lit: false };
+  G.shockRings.length = 0;
+  G.killer = null; G.tension = 0;
+  spawnCreatures();
+  G.levelShards = 0;
+  G.cam.x = G.cam.px = L.start.x; G.cam.y = G.cam.py = L.start.y;
+  G.levelStart = G.time;
+}
+
+function updateWorld(dt) {
+  G.time += dt;
+  updatePlayer(dt);
+  updateCreatures(dt);
+  updatePings();
+  for (let i = G.ghosts.length - 1; i >= 0; i--) if (G.time - G.ghosts[i].t0 > G.ghosts[i].dur) G.ghosts.splice(i, 1);
+  for (let i = G.shockRings.length - 1; i >= 0; i--) if (G.time - G.shockRings[i].t0 > 1.4) G.shockRings.splice(i, 1);
+  updateParticles(dt);
+  updateCamera(dt);
+}
+
+function savePrevPositions() {
+  if (G.player) { G.player.px = G.player.x; G.player.py = G.player.y; }
+  for (const c of G.creatures) { c.px = c.x; c.py = c.y; }
+}
+
+/* ═══════════════════════════ 8. CREATURES ═══════════════════════════ */
+// All creatures are blind. They act only on sounds: yours, and the shrieks of Listeners.
+const CREATURE_DEFS = {
+  crawler:  { r: 10, wander: 36, investigate: 70, hunt: 96, lunge: 235, lungeDist: 60, accel: 380, hear: 1.0, feel: 34 },
+  stalker:  { r: 10, hunt: 178, lunge: 300, lungeDist: 64, accel: 1100, hear: 1.1, memory: 1.05, feel: 22 },
+  listener: { r: 13, hear: 1.0, period: 4.6, pingR: 290 },
+};
+const ALARM_R = 640;              // how far a Listener's shriek carries
+const hearMulAt = (depth) => Math.min(1.35, 1 + 0.035 * (depth - 1));   // deeper things hear farther
+const LISTENER_DETECT_SPEED = 75; // moving faster than this when a Listener's echo passes = seen (68 below depth 8)
+
+class Creature {
+  constructor(type, x, y, depth) {
+    const d = CREATURE_DEFS[type];
+    this.type = type; this.def = d; this.r = d.r;
+    this.x = x; this.y = y; this.px = x; this.py = y; this.vx = 0; this.vy = 0; this.safeX = x; this.safeY = y;
+    this.speedMul = type === 'stalker' ? Math.min(1.3, 1 + 0.03 * (depth - 3)) : Math.min(1.4, 1 + 0.045 * (depth - 1));
+    this.hearMul = hearMulAt(depth);
+    this.lungeDist = (d.lungeDist || 0) * Math.min(1, 0.75 + 0.05 * depth);   // shallow caves forgive more
+    this.feel = (d.feel || 0) + (type === 'crawler' ? Math.min(8, Math.max(0, depth - 5)) : 0);
+    this.memory = d.memory ? Math.min(1.7, d.memory + 0.06 * Math.max(0, depth - 3)) : 0;
+    this.period = d.period ? Math.max(2.8, d.period - 0.16 * Math.max(0, depth - 4)) : 0;
+    this.heading = FX.float() * TAU; this.phase = FX.float() * 10;
+    this.state = type === 'crawler' ? 'wander' : type === 'stalker' ? 'frozen' : 'listen';
+    this.stateT = FX.range(0.5, 3); this.searchT = 0;
+    this.tx = x; this.ty = y; this.path = null; this.pathI = 0; this.repathT = 0; this.needRepath = false;
+    this.lastHeard = -99; this.heardPlayerAt = -99; this.lastAlarm = -99;
+    this.lungeT = 0; this.lungeCD = 0; this.ldx = 0; this.ldy = 0;
+    this.stuckT = 0; this.progX = x; this.progY = y; this.stuckCount = 0;
+    this.pingT = this.period * FX.range(0.35, 1); this.clicking = false;
+    this.inFlare = false; this.flareCheck = FX.int(0, 5);
+    this.activity = 0; this.voice = null;
+  }
+
+  mark() {
+    if (this.type === 'listener') return G.time - this.lastAlarm < 2.5 ? '!' : '';
+    if (this.state === 'hunt' || this.state === 'lunge') return '!';
+    if (this.state === 'investigate' || this.state === 'search') return '?';
+    return '';
+  }
+  hunting() {
+    return this.state === 'lunge' || (this.type === 'stalker' ? this.state === 'hunt' : this.state === 'hunt' || this.state === 'investigate');
+  }
+
+  hear(x, y, loud, kind) {
+    if (this.type === 'listener') { if (kind !== 'alarm') this.raiseAlarm(x, y); return; }
+    if (kind !== 'alarm') this.heardPlayerAt = G.time;
+    const err = (1 - loud) * (this.type === 'stalker' ? 30 : 70);   // distant sounds are poorly localised
+    const tx = x + FX.range(-err, err), ty = y + FX.range(-err, err);
+    const wasCalm = !this.hunting();
+    this.lastHeard = G.time;
+    if (this.state === 'lunge' || this.state === 'recover') { this.tx = tx; this.ty = ty; return; }
+    if (this.state === 'wander' || this.state === 'search' || this.state === 'frozen') this.path = null;
+    if (this.type === 'stalker') this.state = 'hunt';
+    else this.state = kind === 'alarm' || loud > 0.45 || this.state === 'hunt' ? 'hunt' : 'investigate';
+    this.setTarget(tx, ty);
+    if (wasCalm) onCreatureAlerted(this);
+  }
+
+  raiseAlarm(x, y) {
+    if (G.time - this.lastAlarm < 3) return;
+    this.lastAlarm = G.time;
+    addGhost(this, 1.1, 2.2);
+    G.shockRings.push({ x: this.x, y: this.y, t0: G.time, r: ALARM_R });
+    for (const c of G.creatures) {
+      if (c === this || c.type === 'listener') continue;
+      if (Math.hypot(c.x - this.x, c.y - this.y) < ALARM_R * this.hearMul) c.hear(x, y, 1, 'alarm');
+    }
+    onListenerAlarm(this);
+  }
+
+  setTarget(x, y) {
+    const moved = Math.hypot(x - this.tx, y - this.ty);
+    this.tx = x; this.ty = y;
+    if (!this.path || moved > 20 || this.pathI >= this.path.length) {
+      if (this.repathT <= 0) this.repath(); else this.needRepath = true;
+    }
+  }
+  repath() {
+    this.needRepath = false; this.repathT = 0.35;
+    const cells = findPath(this.x, this.y, this.tx, this.ty);
+    if (!cells) { this.path = null; return; }
+    const pts = smoothPath(this.x, this.y, cells, this.r);
+    const last = pts.length ? pts[pts.length - 1] : { x: this.x, y: this.y };
+    if (Math.hypot(this.tx - last.x, this.ty - last.y) > 4 && clearPath(last.x, last.y, this.tx, this.ty, this.r * 0.8)) pts.push({ x: this.tx, y: this.ty });
+    this.path = pts; this.pathI = 0;
+  }
+  pickWanderTarget() {
+    const W = L.W, c0 = nearestWalkable(cellAt(this.x, this.y), -1);
+    if (c0 < 0) return;
+    const comp = L.walkComp[c0], cx = c0 % W, cy = (c0 / W) | 0;
+    for (let k = 0; k < 14; k++) {
+      const x = cx + FX.int(-9, 9), y = cy + FX.int(-9, 9);
+      if (x < 1 || y < 1 || x >= W - 1 || y >= L.H - 1) continue;
+      const c = y * W + x;
+      if (L.walk[c] && L.walkComp[c] === comp && L.clr[c] >= 16) { const p = cellCenter(c); this.tx = p.x; this.ty = p.y; this.repath(); return; }
+    }
+  }
+
+  steer(ux, uy, speed, dt) {
+    const tx = ux * speed - this.vx, ty = uy * speed - this.vy, tl = Math.hypot(tx, ty), step = this.def.accel * dt;
+    if (tl <= step) { this.vx = ux * speed; this.vy = uy * speed; } else { this.vx += tx / tl * step; this.vy += ty / tl * step; }
+  }
+  brake(dt, k = 8) { const f = Math.exp(-k * dt); this.vx *= f; this.vy *= f; }
+  followPath(dt, speed) {
+    if (!this.path || this.pathI >= this.path.length) { this.brake(dt); return true; }
+    let wp = this.path[this.pathI];
+    let dx = wp.x - this.x, dy = wp.y - this.y, dist = Math.hypot(dx, dy);
+    if (dist < Math.max(9, speed * 0.08)) {
+      this.pathI++;
+      if (this.pathI >= this.path.length) { this.brake(dt); return true; }
+      wp = this.path[this.pathI]; dx = wp.x - this.x; dy = wp.y - this.y; dist = Math.hypot(dx, dy) || 1;
+    }
+    this.steer(dx / dist, dy / dist, speed, dt);
+    return false;
+  }
+
+  startLunge(ux, uy, dist) {
+    this.state = 'lunge'; this.lungeT = 0.3; this.ldx = ux; this.ldy = uy; this.lungeCD = 1.8;
+    addGhost(this, 1, 0.9);
+    if (dist < 170) G.slowTimer = Math.max(G.slowTimer, 0.42);
+    G.shake = Math.max(G.shake, 3);
+    onLunge(this);
+  }
+
+  update(dt) {
+    const p = G.player;
+    this.lungeCD = Math.max(0, this.lungeCD - dt);
+    this.repathT -= dt;
+    if (this.needRepath && this.repathT <= 0) this.repath();
+    if (this.type === 'listener') { this.updateListener(dt); return; }
+
+    if (this.state === 'lunge') {
+      const sp = this.def.lunge * this.speedMul;
+      this.vx = this.ldx * sp; this.vy = this.ldy * sp;
+      this.lungeT -= dt;
+      if (this.lungeT <= 0) { this.state = 'recover'; this.stateT = 0.55; }
+    } else if (this.state === 'recover') {
+      this.brake(dt, 6);
+      this.stateT -= dt;
+      if (this.stateT <= 0) {
+        if (this.type === 'stalker') this.state = G.time - this.lastHeard < this.memory ? 'hunt' : 'frozen';
+        else { this.state = 'search'; this.stateT = 2.2; this.tx = this.x; this.ty = this.y; this.path = null; }
+      }
+    } else if (this.type === 'crawler') this.updateCrawler(dt);
+    else this.updateStalker(dt);
+
+    // Lunge when it can hear you right beside it — or simply bumps into you in the dark
+    if (p.alive && this.lungeCD <= 0 && this.state !== 'lunge' && this.state !== 'recover') {
+      const dx = p.x - this.x, dy = p.y - this.y, dist = Math.hypot(dx, dy);
+      const alert = this.type === 'stalker' ? this.state === 'hunt' : this.state !== 'wander';
+      const heard = G.time - this.heardPlayerAt < 0.6;
+      if ((dist < this.feel || (alert && heard && dist < this.lungeDist)) && dist > 0.1 && los(this.x, this.y, p.x, p.y)) this.startLunge(dx / dist, dy / dist, dist);
+    }
+  }
+
+  updateCrawler(dt) {
+    const d = this.def;
+    if (this.state === 'wander') {
+      if (!this.path || this.pathI >= this.path.length) {
+        this.brake(dt);
+        this.stateT -= dt;
+        if (this.stateT <= 0) { this.pickWanderTarget(); this.stateT = FX.range(1.2, 3.5); }
+      } else this.followPath(dt, d.wander * this.speedMul);
+    } else if (this.state === 'investigate' || this.state === 'hunt') {
+      const sp = (this.state === 'hunt' ? d.hunt : d.investigate) * this.speedMul;
+      if (this.followPath(dt, sp)) {
+        this.stateT = this.state === 'hunt' ? 3.4 : 2.4;
+        this.state = 'search'; this.searchT = 0.3; this.path = null;
+      }
+    } else if (this.state === 'search') {
+      this.stateT -= dt;
+      if (!this.path || this.pathI >= this.path.length) {
+        this.brake(dt);
+        this.searchT -= dt;
+        if (this.searchT <= 0) {                           // sniff around the spot it heard you
+          this.searchT = FX.range(0.35, 0.9);
+          const a = FX.float() * TAU, r = FX.range(24, 80);
+          const nx = this.tx + Math.cos(a) * r, ny = this.ty + Math.sin(a) * r;
+          if (clearPath(this.x, this.y, nx, ny, this.r)) { this.path = [{ x: nx, y: ny }]; this.pathI = 0; }
+        }
+      } else this.followPath(dt, d.investigate * 0.75 * this.speedMul);
+      if (this.stateT <= 0) { this.state = 'wander'; this.path = null; this.stateT = FX.range(0.8, 2); }
+    }
+  }
+
+  updateStalker(dt) {
+    if (G.time - this.lastHeard < this.memory) {
+      this.state = 'hunt';
+      if (this.followPath(dt, this.def.hunt * this.speedMul)) this.brake(dt, 12);
+    } else {
+      this.state = 'frozen';
+      this.brake(dt, 14);
+    }
+  }
+
+  updateListener(dt) {
+    this.vx = 0; this.vy = 0;
+    this.pingT -= dt;
+    if (this.pingT <= 1.1 && !this.clicking) { this.clicking = true; onListenerCharging(this); }
+    if (this.pingT <= 0) {
+      this.pingT = this.period * FX.range(0.85, 1.15); this.clicking = false;
+      createPing('listener', this.x, this.y, { radius: this.def.pingR * Math.min(1.25, this.hearMul), speed: 430, reveal: 1.6, strength: 0.62, owner: this, kind: 'listener' });
+      addGhost(this, 0.5, 1.1);
+      onListenerPing(this);
+    }
+  }
+
+  integrate(dt) {
+    this.x += this.vx * dt; this.y += this.vy * dt;
+    const sp = Math.hypot(this.vx, this.vy);
+    if (sp > 6) this.heading += angDiff(Math.atan2(this.vy, this.vx), this.heading) * Math.min(1, dt * 10);
+    this.phase += dt * (1.5 + sp * 0.16);
+    this.activity = lerp(this.activity, clamp(sp / 120, 0, 1), Math.min(1, dt * 6));
+  }
+
+  checkStuck(dt) {
+    const moving = this.path && this.pathI < this.path.length && this.state !== 'lunge' && this.state !== 'recover' && this.state !== 'frozen';
+    this.stuckT += dt;
+    if (this.stuckT < 1) return;
+    const moved = Math.hypot(this.x - this.progX, this.y - this.progY);
+    this.stuckT = 0; this.progX = this.x; this.progY = this.y;
+    if (!moving || moved > 8) { this.stuckCount = 0; return; }
+    this.stuckCount++;
+    if (this.stuckCount >= 3 && this.state === 'wander') { this.path = null; this.stuckCount = 0; return; }
+    // nudge toward the nearest walkable cell centre, then replan
+    const c = nearestWalkable(cellAt(this.x, this.y), -1);
+    if (c >= 0) { const cc = cellCenter(c); const dx = cc.x - this.x, dy = cc.y - this.y, dl = Math.hypot(dx, dy); if (dl > 1) { this.vx = dx / dl * 60; this.vy = dy / dl * 60; } }
+    this.repath();
+  }
+}
+
+function addGhost(c, str, dur) {
+  if (G.ghosts.length >= 80) G.ghosts.shift();
+  G.ghosts.push({ type: c.type, x: c.x, y: c.y, ang: c.heading, vx: c.vx, vy: c.vy, t0: G.time, dur, str, mark: c.mark(), phase: c.phase });
+}
+
+function spawnCreatures() {
+  G.creatures = L.spawns.map((s) => new Creature(s.type, s.x, s.y, G.depth));
+  Audio.attachVoices();
+}
+
+function updateCreatures(dt) {
+  const cs = G.creatures, p = G.player;
+  for (const c of cs) c.update(dt);
+  for (const c of cs) c.integrate(dt);
+  // Soft separation so they don't stack in corridors (Listeners are rooted)
+  for (let i = 0; i < cs.length; i++) for (let j = i + 1; j < cs.length; j++) {
+    const a = cs[i], b = cs[j], dx = b.x - a.x, dy = b.y - a.y, min = a.r + b.r, d2 = dx * dx + dy * dy;
+    if (d2 >= min * min || d2 < 1e-6) continue;
+    const d = Math.sqrt(d2), push = (min - d), ux = dx / d, uy = dy / d;
+    const wa = a.type === 'listener' ? 0 : b.type === 'listener' ? 1 : 0.5, wb = 1 - wa;
+    a.x -= ux * push * wa; a.y -= uy * push * wa; b.x += ux * push * wb; b.y += uy * push * wb;
+  }
+  for (const c of cs) {
+    if (c.type !== 'listener') { collideCircle(c, c.r); c.checkStuck(dt); }
+    if (--c.flareCheck <= 0) {
+      c.flareCheck = 6;
+      c.inFlare = G.flares.some((f) => Math.hypot(f.x - c.x, f.y - c.y) < CFG.FLARE_R + c.r && los(f.x, f.y, c.x, c.y));
+    }
+    if (p.alive && Math.hypot(p.x - c.x, p.y - c.y) < CFG.PLAYER_R + c.r * 0.8) killPlayer(c);
+  }
+  // Tension: how hard, and how close, the dark is hunting you
+  let tension = 0;
+  if (p.alive) for (const c of cs) {
+    if (!c.hunting()) continue;
+    const d = Math.hypot(p.x - c.x, p.y - c.y);
+    tension = Math.max(tension, clamp(1.15 - d / 650, 0, 1) * (c.state === 'lunge' ? 1.2 : 1));
+  }
+  G.tension = lerp(G.tension, Math.min(1, tension), Math.min(1, dt * (tension > G.tension ? 3 : 0.6)));
+}
+
+function pingTouchCreatures(pg, r0, r1) {
+  for (const c of G.creatures) {
+    if (pg.owner === c) continue;
+    if (pingTouches(pg, c.x, c.y, r0, r1)) {
+      addGhost(c, pg.src === 'player' ? 1 : 0.75, pg.src === 'player' ? 1.8 : 1.3);
+      onCreatureRevealed(c, pg);
+    }
+  }
+  const p = G.player;
+  if (pg.src === 'listener' && p.alive && pingTouches(pg, p.x, p.y, r0, r1)) {
+    if (Math.hypot(p.vx, p.vy) > (G.depth > 8 ? 68 : LISTENER_DETECT_SPEED)) pg.owner.raiseAlarm(p.x, p.y);
+    else onListenerMissed();
+  }
+}
+
+function killPlayer(c) {
+  const p = G.player;
+  if (!p.alive) return;
+  p.alive = false; p.charging = false; p.charge = 0;
+  G.killer = c;
+  G.shake = 16; G.slowTimer = 1.0; G.flash = 1;
+  addGhost(c, 1.4, 4);
+  for (let i = 0; i < 70; i++) {
+    const a = FX.float() * TAU, s = 30 + FX.float() * 220;
+    spawnParticle(p.x, p.y, Math.cos(a) * s, Math.sin(a) * s, 0.6 + FX.float() * 1.2, i % 3 ? 160 : 255, i % 3 ? 250 : 90, i % 3 ? 240 : 60, 1.8);
+  }
+  G.state = 'dying'; G.deathAt = G.realTime;
+  onDeath(c);
+}
+
+
+/* ═══════════════════════════ 9. AUDIO ═══════════════════════════ */
+// Everything is synthesized. The context is created on the first key/click (autoplay rules).
+// Graph: voices → [panner] → master → compressor → out, with sends to a convolver (generated
+// impulse response) and a low-passed feedback delay for the cave's slapback.
+const Audio = {
+  ctx: null, ready: false, muted: store.get('echo.muted', false),
+  master: null, reverbIn: null, delayIn: null, noiseBuf: null, skitterBuf: null,
+  drone: null, voices: new Map(), exitVoice: null, chargeVoice: null,
+  dripT: 3, heartT: 0, spatialT: 0,
+
+  init() {
+    if (this.ctx) { if (this.ctx.state === 'suspended' && G.state !== 'paused') this.ctx.resume().catch(() => {}); return; }
+    const AC = window.AudioContext || window.webkitAudioContext;
+    if (!AC) return;
+    try { this.ctx = new AC(); } catch (e) { return; }
+    const ac = this.ctx;
+    if (ac.state === 'suspended') ac.resume().catch(() => {});
+    this.master = ac.createGain(); this.master.gain.value = this.muted ? 0 : 0.85;
+    const comp = ac.createDynamicsCompressor();
+    comp.threshold.value = -18; comp.knee.value = 14; comp.ratio.value = 4; comp.attack.value = 0.004; comp.release.value = 0.3;
+    this.master.connect(comp); comp.connect(ac.destination);
+
+    const rev = ac.createConvolver(); rev.buffer = this.makeIR(3.4, 2.4);
+    this.reverbIn = ac.createGain(); this.reverbIn.connect(rev);
+    const revOut = ac.createGain(); revOut.gain.value = 0.6; rev.connect(revOut); revOut.connect(this.master);
+
+    this.delayIn = ac.createGain();
+    const dl = ac.createDelay(1.0); dl.delayTime.value = 0.29;
+    const fb = ac.createGain(); fb.gain.value = 0.38;
+    const lp = ac.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = 1900;
+    this.delayIn.connect(dl); dl.connect(lp); lp.connect(fb); fb.connect(dl);
+    const dOut = ac.createGain(); dOut.gain.value = 0.42; lp.connect(dOut); dOut.connect(this.master);
+
+    const rate = ac.sampleRate;
+    this.noiseBuf = ac.createBuffer(1, rate * 2, rate);
+    { const d = this.noiseBuf.getChannelData(0); for (let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1; }
+    // A loop of chitinous leg taps for the Crawlers
+    this.skitterBuf = ac.createBuffer(1, rate * 2, rate);
+    {
+      const d = this.skitterBuf.getChannelData(0);
+      let t = 0;
+      while (t < 1.95) {
+        const burst = 1 + Math.floor(Math.random() * 4);
+        for (let b = 0; b < burst; b++) {
+          const i0 = Math.floor((t + b * (0.012 + Math.random() * 0.02)) * rate), len = Math.floor(rate * (0.002 + Math.random() * 0.005)), amp = 0.3 + Math.random() * 0.7;
+          for (let i = 0; i < len && i0 + i < d.length; i++) d[i0 + i] += (Math.random() * 2 - 1) * amp * Math.pow(1 - i / len, 2);
+        }
+        t += 0.03 + Math.random() * 0.09;
+      }
+    }
+    this.ready = true;
+    this.startDrone();
+    if (G.creatures.length) this.attachVoices();
+  },
+
+  makeIR(dur, decay) {
+    const ac = this.ctx, rate = ac.sampleRate, len = Math.floor(rate * dur), buf = ac.createBuffer(2, len, rate);
+    for (let ch = 0; ch < 2; ch++) {
+      const d = buf.getChannelData(ch);
+      for (let i = 0; i < len; i++) {
+        const t = i / len;
+        d[i] = (Math.random() * 2 - 1) * Math.pow(1 - t, decay) * (i < rate * 0.012 ? i / (rate * 0.012) : 1) * 0.6;
+      }
+      for (let k = 0; k < 14; k++) {                     // sparse early reflections off near rock
+        const idx = Math.floor(rate * (0.008 + Math.random() * 0.14));
+        d[idx] += (Math.random() < 0.5 ? -1 : 1) * (0.5 + Math.random() * 0.5) * (1 - idx / (rate * 0.16));
+      }
+    }
+    return buf;
+  },
+
+  now() { return this.ctx.currentTime; },
+
+  // Output chain for a one-shot: returns its input node; everything disconnects when `src` ends.
+  out(src, pan = 0, wet = 0.3, dly = 0) {
+    const ac = this.ctx, g = ac.createGain(), nodes = [g];
+    let tail = g;
+    if (pan && ac.createStereoPanner) { const p = ac.createStereoPanner(); p.pan.value = clamp(pan, -1, 1); g.connect(p); tail = p; nodes.push(p); }
+    tail.connect(this.master);
+    if (wet > 0) { const w = ac.createGain(); w.gain.value = wet; tail.connect(w); w.connect(this.reverbIn); nodes.push(w); }
+    if (dly > 0) { const w = ac.createGain(); w.gain.value = dly; tail.connect(w); w.connect(this.delayIn); nodes.push(w); }
+    src.addEventListener('ended', () => { for (const n of nodes) { try { n.disconnect(); } catch (e) { /* already gone */ } } });
+    return g;
+  },
+
+  tone({ type = 'sine', f = 440, f2 = null, t = 0, dur = 0.3, gain = 0.1, attack = 0.005, pan = 0, wet = 0.3, dly = 0, filter = null }) {
+    if (!this.ready) return;
+    const ac = this.ctx, t0 = this.now() + t;
+    const o = ac.createOscillator(); o.type = type;
+    o.frequency.setValueAtTime(f, t0);
+    if (f2) o.frequency.exponentialRampToValueAtTime(Math.max(20, f2), t0 + dur);
+    const e = ac.createGain();
+    e.gain.setValueAtTime(0.0001, t0);
+    e.gain.exponentialRampToValueAtTime(Math.max(0.0002, gain), t0 + attack);
+    e.gain.exponentialRampToValueAtTime(0.0001, t0 + dur);
+    let head = o;
+    if (filter) { const fl = ac.createBiquadFilter(); fl.type = filter.type; fl.frequency.value = filter.f; fl.Q.value = filter.q || 1; if (filter.f2) fl.frequency.exponentialRampToValueAtTime(filter.f2, t0 + dur); o.connect(fl); head = fl; }
+    head.connect(e); e.connect(this.out(o, pan, wet, dly));
+    o.start(t0); o.stop(t0 + dur + 0.05);
+    if (head !== o) o.addEventListener('ended', () => { try { head.disconnect(); } catch (err) { /* noop */ } });
+  },
+
+  noise({ t = 0, dur = 0.1, gain = 0.1, attack = 0.003, type = 'bandpass', f = 1000, f2 = null, q = 1, pan = 0, wet = 0.2, dly = 0 }) {
+    if (!this.ready) return;
+    const ac = this.ctx, t0 = this.now() + t;
+    const s = ac.createBufferSource(); s.buffer = this.noiseBuf;
+    const fl = ac.createBiquadFilter(); fl.type = type; fl.frequency.setValueAtTime(f, t0); fl.Q.value = q;
+    if (f2) fl.frequency.exponentialRampToValueAtTime(f2, t0 + dur);
+    const e = ac.createGain();
+    e.gain.setValueAtTime(0.0001, t0);
+    e.gain.exponentialRampToValueAtTime(Math.max(0.0002, gain), t0 + attack);
+    e.gain.exponentialRampToValueAtTime(0.0001, t0 + dur);
+    s.connect(fl); fl.connect(e); e.connect(this.out(s, pan, wet, dly));
+    s.addEventListener('ended', () => { try { fl.disconnect(); e.disconnect(); } catch (err) { /* noop */ } });
+    s.start(t0, Math.random() * Math.max(0, 1.9 - dur)); s.stop(t0 + dur + 0.05);
+  },
+
+  // Where a world point sits in the stereo field, how loud, and whether rock is in the way
+  spatial(x, y, maxD = 950) {
+    const p = G.player, lx = p ? p.x : G.cam.x, ly = p ? p.y : G.cam.y;
+    const dx = x - lx, dy = y - ly, d = Math.hypot(dx, dy);
+    let g = clamp(1 - d / maxD, 0, 1); g *= g;
+    const occl = g > 0 && d > 40 && L && !los(lx, ly, x, y);
+    return { gain: occl ? g * 0.45 : g, pan: clamp(dx / 420, -1, 1) * 0.85, occl, d };
+  },
+
+  // — Player sounds —
+  ping(kind, charge, ang) {
+    if (!this.ready) return;
+    if (kind === 'dir') {
+      const pan = Math.cos(ang) * 0.6;
+      this.tone({ f: 2250, f2: 2180, dur: 0.5, gain: 0.13, pan, wet: 0.5, dly: 0.35 });
+      this.tone({ f: 4500, f2: 4300, dur: 0.18, gain: 0.03, pan, wet: 0.3 });
+      this.noise({ dur: 0.03, gain: 0.05, f: 3800, q: 2, pan });
+      return;
+    }
+    const f = lerp(1480, 760, charge), dur = 0.75 + 1.5 * charge, gain = 0.2 + 0.16 * charge;
+    this.tone({ f: f * 1.015, f2: f * 0.985, dur, gain, wet: 0.75 + 0.3 * charge, dly: 0.45 });
+    this.tone({ f: f * 2.004, f2: f * 1.98, dur: dur * 0.45, gain: gain * 0.13, wet: 0.5 });
+    this.noise({ dur: 0.025, gain: 0.07, f: 3200, q: 1.5 });
+    if (charge > 0.12) {
+      this.tone({ f: f / 2, f2: f / 2.1, dur: dur * 0.9, gain: gain * charge * 0.7, wet: 0.8, dly: 0.3 });
+      this.tone({ f: 70, f2: 40, dur: 0.35, gain: 0.25 * charge, wet: 0.2 });
+    }
+  },
+  footstep(sp) {
+    this.noise({ dur: 0.05, gain: 0.03 + 0.03 * clamp((sp - 90) / 60, 0, 1), type: 'lowpass', f: 420, q: 0.7, wet: 0.15 });
+  },
+  bump() {
+    this.noise({ dur: 0.1, gain: 0.08, type: 'lowpass', f: 260, q: 0.8, wet: 0.3 });
+    this.tone({ f: 90, f2: 55, dur: 0.12, gain: 0.12 });
+  },
+  pickup(kind) {
+    if (kind === 'shard') {
+      this.tone({ f: 1568, dur: 0.9, gain: 0.06, wet: 0.9, dly: 0.2 });
+      this.tone({ f: 2349, t: 0.06, dur: 1.1, gain: 0.05, wet: 0.9, dly: 0.2 });
+      this.tone({ f: 3136, t: 0.12, dur: 0.8, gain: 0.02, wet: 1 });
+    } else {
+      this.tone({ f: 784, dur: 0.7, gain: 0.07, wet: 0.8 });
+      this.tone({ f: 1175, t: 0.08, dur: 0.9, gain: 0.05, wet: 0.8 });
+    }
+  },
+  flare() {
+    this.noise({ dur: 0.9, gain: 0.16, f: 600, f2: 3400, q: 1.2, wet: 0.5 });
+    this.tone({ f: 120, f2: 60, dur: 0.25, gain: 0.14 });
+    for (let i = 0; i < 9; i++) this.noise({ t: 0.05 + Math.random() * 0.8, dur: 0.012, gain: 0.05 + Math.random() * 0.05, f: 2500 + Math.random() * 3000, q: 3, pan: Math.random() * 0.4 - 0.2 });
+  },
+  exit() {
+    const notes = [440, 554.37, 659.25, 880, 1318.5, 1760];
+    notes.forEach((f, i) => { this.tone({ f, t: i * 0.085, dur: 1.8, gain: 0.07, wet: 1, dly: 0.3 }); this.tone({ type: 'triangle', f: f / 2, t: i * 0.085, dur: 1.2, gain: 0.025, wet: 0.8 }); });
+    this.noise({ dur: 1.6, gain: 0.12, type: 'lowpass', f: 200, f2: 5000, q: 0.8, wet: 0.8, attack: 0.6 });
+  },
+  death() {
+    this.tone({ type: 'sawtooth', f: 80, f2: 30, dur: 1.6, gain: 0.3, filter: { type: 'lowpass', f: 900, f2: 120, q: 4 }, wet: 0.6 });
+    this.tone({ type: 'sawtooth', f: 83, f2: 33, dur: 1.6, gain: 0.2, filter: { type: 'lowpass', f: 700, q: 2 }, wet: 0.6 });
+    this.noise({ dur: 1.4, gain: 0.35, type: 'lowpass', f: 4000, f2: 90, q: 1, wet: 0.7 });
+    this.tone({ f: 1480, f2: 180, dur: 1.3, gain: 0.08, wet: 0.9, dly: 0.4 });
+  },
+
+  // — Creature sounds —
+  contact(c) {
+    const s = this.spatial(c.x, c.y, 1100);
+    const g = 0.05 + 0.08 * Math.sqrt(s.gain);
+    const f = c.type === 'crawler' ? 380 : c.type === 'stalker' ? 290 : 470;
+    this.tone({ type: 'triangle', f, f2: f * 0.93, dur: 0.16, gain: g, pan: s.pan, wet: 0.4 });
+    this.tone({ type: 'triangle', f: f * 1.5, f2: f * 1.4, t: 0.07, dur: 0.12, gain: g * 0.6, pan: s.pan, wet: 0.4 });
+  },
+  lunge(c) {
+    const s = this.spatial(c.x, c.y, 700);
+    const g = 0.08 + 0.2 * s.gain;
+    this.tone({ type: 'sawtooth', f: 190, f2: 85, dur: 0.35, gain: g, pan: s.pan, filter: { type: 'bandpass', f: 900, q: 2.5 }, wet: 0.3 });
+    this.noise({ dur: 0.28, gain: g * 0.8, f: 2600, f2: 900, q: 1.2, pan: s.pan, wet: 0.2 });
+  },
+  listenerClicks(c) {
+    const s = this.spatial(c.x, c.y, 1100);
+    if (s.gain < 0.004) return;
+    let t = 0, gap = 0.2;
+    while (t < 1.05) {
+      this.tone({ f: 3000 + Math.random() * 500, t, dur: 0.018, gain: 0.05 * Math.sqrt(s.gain) + 0.01, attack: 0.001, pan: s.pan, wet: 0.35 });
+      t += gap; gap = Math.max(0.045, gap * 0.8);
+    }
+  },
+  listenerPing(c) {
+    const s = this.spatial(c.x, c.y, 1300);
+    if (s.gain < 0.002) return;
+    const g = 0.03 + 0.1 * s.gain;
+    this.tone({ f: 640, f2: 400, dur: 1.2, gain: g, pan: s.pan, wet: 0.9, dly: 0.35 });
+    this.tone({ f: 905, f2: 566, dur: 0.9, gain: g * 0.45, pan: s.pan, wet: 0.9 });
+  },
+  alarm(c) {
+    const s = this.spatial(c.x, c.y, 1600);
+    const g = 0.07 + 0.16 * s.gain;
+    for (const det of [1, 1.061]) this.tone({ type: 'sawtooth', f: 900 * det, f2: 1700 * det, dur: 0.7, gain: g, pan: s.pan, filter: { type: 'bandpass', f: 1900, q: 2 }, wet: 0.7, dly: 0.3 });
+    this.noise({ dur: 0.5, gain: g * 0.5, f: 4000, q: 1, pan: s.pan, wet: 0.5 });
+  },
+
+  // Persistent spatial voices: Crawlers skitter, Stalkers breathe. Listeners only click and ping.
+  attachVoices() {
+    this.detachVoices();
+    if (!this.ready) return;
+    const ac = this.ctx;
+    for (const c of G.creatures) {
+      if (c.type === 'listener') continue;
+      const bus = ac.createGain(); bus.gain.value = 0;
+      const lp = ac.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = 8000;
+      const pan = ac.createStereoPanner ? ac.createStereoPanner() : ac.createGain();
+      const wet = ac.createGain(); wet.gain.value = 0.3;
+      bus.connect(lp); lp.connect(pan); pan.connect(this.master); pan.connect(wet); wet.connect(this.reverbIn);
+      const v = { bus, lp, pan, wet, srcs: [], nodes: [bus, lp, pan, wet], breathPh: FX.float() * TAU, occl: false, losT: 0 };
+      if (c.type === 'crawler') {
+        const s = ac.createBufferSource(); s.buffer = this.skitterBuf; s.loop = true;
+        const bp = ac.createBiquadFilter(); bp.type = 'bandpass'; bp.frequency.value = 2600 + FX.float() * 1600; bp.Q.value = 1.4;
+        const act = ac.createGain(); act.gain.value = 0;
+        s.connect(bp); bp.connect(act); act.connect(bus);
+        s.start(0, FX.float() * 1.9);
+        v.srcs.push(s); v.nodes.push(bp, act); v.act = act; v.src = s;
+      } else {
+        const s = ac.createBufferSource(); s.buffer = this.noiseBuf; s.loop = true;
+        const bp = ac.createBiquadFilter(); bp.type = 'bandpass'; bp.frequency.value = 360 + FX.float() * 80; bp.Q.value = 1.3;
+        const br = ac.createGain(); br.gain.value = 0;
+        s.connect(bp); bp.connect(br); br.connect(bus);
+        const o = ac.createOscillator(); o.type = 'sawtooth'; o.frequency.value = 44 + FX.float() * 8;
+        const olp = ac.createBiquadFilter(); olp.type = 'lowpass'; olp.frequency.value = 150;
+        const gr = ac.createGain(); gr.gain.value = 0;
+        o.connect(olp); olp.connect(gr); gr.connect(bus);
+        s.start(0, FX.float()); o.start();
+        v.srcs.push(s, o); v.nodes.push(bp, br, olp, gr); v.breath = br; v.growl = gr;
+      }
+      this.voices.set(c, v);
+    }
+    // The portal hums faintly — you can find it by ear
+    const ex = G.exit;
+    if (ex) {
+      const bus = ac.createGain(); bus.gain.value = 0;
+      const pan = ac.createStereoPanner ? ac.createStereoPanner() : ac.createGain();
+      const wet = ac.createGain(); wet.gain.value = 0.5;
+      bus.connect(pan); pan.connect(this.master); pan.connect(wet); wet.connect(this.reverbIn);
+      const o1 = ac.createOscillator(); o1.frequency.value = 220;
+      const o2 = ac.createOscillator(); o2.frequency.value = 330.6;
+      const o3 = ac.createOscillator(); o3.frequency.value = 440.8;
+      const trem = ac.createGain(); trem.gain.value = 0.7;
+      const lfo = ac.createOscillator(); lfo.frequency.value = 0.35; const lfoG = ac.createGain(); lfoG.gain.value = 0.3;
+      lfo.connect(lfoG); lfoG.connect(trem.gain);
+      const g3 = ac.createGain(); g3.gain.value = 0.3;
+      o1.connect(trem); o2.connect(trem); o3.connect(g3); g3.connect(trem); trem.connect(bus);
+      for (const o of [o1, o2, o3, lfo]) o.start();
+      this.exitVoice = { bus, pan, srcs: [o1, o2, o3, lfo], nodes: [bus, pan, wet, trem, lfoG, g3] };
+    }
+  },
+  detachVoices() {
+    const kill = (v) => { for (const s of v.srcs) { try { s.stop(); } catch (e) { /* noop */ } } for (const n of v.nodes) { try { n.disconnect(); } catch (e) { /* noop */ } } };
+    for (const v of this.voices.values()) kill(v);
+    this.voices.clear();
+    if (this.exitVoice) { kill(this.exitVoice); this.exitVoice = null; }
+  },
+
+  startDrone() {
+    const ac = this.ctx, t = this.now();
+    const out = ac.createGain(); out.gain.setValueAtTime(0.0001, t); out.gain.exponentialRampToValueAtTime(0.9, t + 5);
+    const send = ac.createGain(); send.gain.value = 0.35; out.connect(this.master); out.connect(send); send.connect(this.reverbIn);
+    const lp = ac.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = 240; lp.Q.value = 0.8; lp.connect(out);
+    const lfo = ac.createOscillator(); lfo.frequency.value = 0.045; const lfoG = ac.createGain(); lfoG.gain.value = 70;
+    lfo.connect(lfoG); lfoG.connect(lp.frequency); lfo.start();
+    const osc = (type, f, g, dest) => { const o = ac.createOscillator(); o.type = type; o.frequency.value = f; const gg = ac.createGain(); gg.gain.value = g; o.connect(gg); gg.connect(dest); o.start(); return o; };
+    osc('sawtooth', 55, 0.05, lp); osc('sawtooth', 55.35, 0.045, lp); osc('sine', 110, 0.035, lp); osc('triangle', 82.41, 0.02, lp);
+    // Dissonance that swells when something is hunting you: a tritone and a semitone rub
+    const tension = ac.createGain(); tension.gain.value = 0;
+    const tlp = ac.createBiquadFilter(); tlp.type = 'lowpass'; tlp.frequency.value = 420; tlp.connect(tension); tension.connect(out);
+    osc('sawtooth', 58.27, 0.05, tlp); osc('sawtooth', 77.78, 0.04, tlp); osc('sine', 116.54, 0.03, tlp);
+    const shimmer = ac.createGain(); shimmer.gain.value = 0; shimmer.connect(out); shimmer.connect(send);
+    osc('sine', 1760, 0.5, shimmer); osc('sine', 1864.66, 0.5, shimmer);
+    this.drone = { out, lp, tension, shimmer };
+  },
+
+  setMuted(m) {
+    this.muted = m; store.set('echo.muted', m);
+    if (this.ready) this.master.gain.setTargetAtTime(m ? 0 : 0.85, this.now(), 0.05);
+  },
+  suspend() { if (this.ctx && this.ctx.state === 'running') this.ctx.suspend().catch(() => {}); },
+  resume() { if (this.ctx && this.ctx.state === 'suspended') this.ctx.resume().catch(() => {}); },
+
+  // Per-frame: spatial voices, drone tension, heartbeat, drips, charge hum
+  update(dt) {
+    if (!this.ready || this.ctx.state !== 'running') return;
+    const t = this.now(), p = G.player;
+    const inGame = G.state === 'playing' || G.state === 'dying' || G.state === 'dead';
+
+    this.spatialT -= dt;
+    if (this.spatialT <= 0) {
+      this.spatialT = 0.05;
+      for (const [c, v] of this.voices) {
+        v.losT -= 0.05;
+        const s = this.spatial(c.x, c.y, c.type === 'stalker' ? 800 : 900);
+        v.bus.gain.setTargetAtTime(inGame ? s.gain : 0, t, 0.08);
+        if (v.pan.pan) v.pan.pan.setTargetAtTime(s.pan, t, 0.08);
+        v.lp.frequency.setTargetAtTime(s.occl ? 650 : 8000, t, 0.15);
+        if (c.type === 'crawler') {
+          v.act.gain.setTargetAtTime(0.05 + 0.5 * c.activity, t, 0.08);
+          v.src.playbackRate.setTargetAtTime(0.75 + 0.7 * c.activity, t, 0.1);
+        }
+      }
+      if (this.exitVoice && G.exit) {
+        const s = this.spatial(G.exit.x, G.exit.y, 820);
+        this.exitVoice.bus.gain.setTargetAtTime(inGame ? s.gain * 0.06 : 0, t, 0.2);
+        if (this.exitVoice.pan.pan) this.exitVoice.pan.pan.setTargetAtTime(s.pan, t, 0.2);
+      }
+    }
+    // Stalker breathing: slow and shallow when frozen, ragged with a growl when hunting
+    for (const [c, v] of this.voices) {
+      if (c.type !== 'stalker') continue;
+      const hunting = c.state === 'hunt' || c.state === 'lunge';
+      v.breathPh += dt * TAU * (hunting ? 1.1 : 0.21);
+      const sn = Math.sin(v.breathPh), env = sn * sn * (sn > 0 ? 0.55 : 1);
+      v.breath.gain.setTargetAtTime(env * (hunting ? 0.55 : 0.28), t, 0.04);
+      v.growl.gain.setTargetAtTime(hunting ? 0.35 : 0, t, 0.2);
+    }
+
+    if (this.drone) {
+      const k = inGame ? G.tension : 0;
+      this.drone.tension.gain.setTargetAtTime(k * 1.1, t, 0.5);
+      this.drone.shimmer.gain.setTargetAtTime(k * k * 0.014, t, 0.7);
+      this.drone.lp.frequency.setTargetAtTime(240 + k * 520, t, 0.7);
+    }
+    // Heartbeat once the hunt gets close
+    if (inGame && p && p.alive && G.tension > 0.5) {
+      this.heartT -= dt;
+      if (this.heartT <= 0) {
+        const k = (G.tension - 0.5) / 0.5;
+        this.heartT = lerp(0.95, 0.5, k);
+        this.tone({ f: 62, f2: 42, dur: 0.16, gain: 0.18 + 0.2 * k, wet: 0.05 });
+        this.tone({ f: 58, f2: 40, t: 0.17, dur: 0.18, gain: 0.12 + 0.14 * k, wet: 0.05 });
+      }
+    } else this.heartT = 0;
+    // Distant drips
+    this.dripT -= dt;
+    if (this.dripT <= 0) {
+      this.dripT = 2.5 + Math.random() * 6;
+      const f = 1300 + Math.random() * 1400, pan = Math.random() * 1.6 - 0.8, g = 0.012 + Math.random() * 0.03;
+      this.tone({ f, f2: f * 0.55, dur: 0.09, gain: g, attack: 0.002, pan, wet: 1.4, dly: 0.2 });
+      if (Math.random() < 0.3) this.tone({ f: f * 0.9, f2: f * 0.5, t: 0.35 + Math.random() * 0.4, dur: 0.08, gain: g * 0.6, attack: 0.002, pan, wet: 1.4 });
+    }
+    // Rising hum while a ping charges
+    const charging = inGame && p && p.charging && p.charge > 0;
+    if (charging && !this.chargeVoice) {
+      const ac = this.ctx, o = ac.createOscillator(), g = ac.createGain();
+      o.type = 'sine'; o.frequency.value = 200; g.gain.value = 0;
+      o.connect(g); g.connect(this.out(o, 0, 0.3));
+      o.start();
+      this.chargeVoice = { o, g };
+    }
+    if (this.chargeVoice) {
+      if (charging) {
+        this.chargeVoice.o.frequency.setTargetAtTime(200 + p.charge * 460, t, 0.05);
+        this.chargeVoice.g.gain.setTargetAtTime(0.015 + p.charge * 0.045, t, 0.05);
+      } else {
+        const cv = this.chargeVoice; this.chargeVoice = null;
+        cv.g.gain.setTargetAtTime(0, t, 0.02);
+        cv.o.stop(t + 0.15);
+      }
+    }
+  },
+};
+
+/* ═══════════════════════════ 10. RENDERING ═══════════════════════════ */
+const canvas = document.getElementById('game');
+const ctx = canvas.getContext('2d', { alpha: false });
+let DPR = 1, CW = 0, CH = 0, ZOOM = 1;
+let grainCanvas = null, vignetteCanvas = null, redVignetteCanvas = null;
+const REDUCED_MOTION = (() => { try { return window.matchMedia('(prefers-reduced-motion: reduce)').matches; } catch (e) { return false; } })();
+const MONO = 'ui-monospace, "SF Mono", SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace';
+
+const COL = {
+  bg: '#020405',
+  wall: [95, 245, 228],        // your sonar
+  wallL: [255, 176, 92],       // a Listener's sonar
+  flare: [205, 255, 215],      // flare light
+  creature: [255, 74, 52],
+  exit: [178, 140, 255],
+  shard: [222, 234, 255],
+};
+const rgba = (c, a) => `rgba(${c[0]},${c[1]},${c[2]},${a})`;
+
+function makeSprite(size, stops) {
+  const c = document.createElement('canvas'); c.width = c.height = size;
+  const g = c.getContext('2d'), gr = g.createRadialGradient(size / 2, size / 2, 0, size / 2, size / 2, size / 2);
+  for (const [o, col] of stops) gr.addColorStop(o, col);
+  g.fillStyle = gr; g.fillRect(0, 0, size, size);
+  return c;
+}
+const SPR = {
+  glow: makeSprite(256, [[0, 'rgba(160,250,240,0.55)'], [0.25, 'rgba(70,200,190,0.18)'], [0.6, 'rgba(30,110,110,0.05)'], [1, 'rgba(0,0,0,0)']]),
+  flare: makeSprite(256, [[0, 'rgba(230,255,235,0.55)'], [0.2, 'rgba(170,240,190,0.2)'], [0.55, 'rgba(90,170,120,0.06)'], [1, 'rgba(0,0,0,0)']]),
+  exit: makeSprite(128, [[0, 'rgba(200,170,255,0.6)'], [0.4, 'rgba(120,80,220,0.18)'], [1, 'rgba(0,0,0,0)']]),
+  red: makeSprite(128, [[0, 'rgba(255,90,60,0.5)'], [0.45, 'rgba(180,30,20,0.12)'], [1, 'rgba(0,0,0,0)']]),
+  scrim: makeSprite(128, [[0, 'rgba(2,4,5,0.8)'], [0.55, 'rgba(2,4,5,0.55)'], [1, 'rgba(2,4,5,0)']]),
+};
+
+function resize() {
+  DPR = Math.min(window.devicePixelRatio || 1, 2.5);
+  CW = Math.max(1, window.innerWidth); CH = Math.max(1, window.innerHeight);
+  canvas.width = Math.round(CW * DPR); canvas.height = Math.round(CH * DPR);
+  ZOOM = Math.max(0.32, Math.min(CH / CFG.VIEW_H, CW / CFG.VIEW_W_MIN));
+  // Film grain tile
+  grainCanvas = document.createElement('canvas'); grainCanvas.width = grainCanvas.height = 192;
+  const gc = grainCanvas.getContext('2d'), id = gc.createImageData(192, 192);
+  for (let i = 0; i < id.data.length; i += 4) { const v = 120 + Math.random() * 135; id.data[i] = v; id.data[i + 1] = v; id.data[i + 2] = v + 10; id.data[i + 3] = Math.random() < 0.5 ? Math.random() * 16 : 0; }
+  gc.putImageData(id, 0, 0);
+  grainCanvas.pattern = ctx.createPattern(grainCanvas, 'repeat');
+  // Vignette
+  vignetteCanvas = document.createElement('canvas'); vignetteCanvas.width = canvas.width; vignetteCanvas.height = canvas.height;
+  const vc = vignetteCanvas.getContext('2d'), R = Math.hypot(canvas.width, canvas.height) / 2;
+  const vg = vc.createRadialGradient(canvas.width / 2, canvas.height / 2, R * 0.35, canvas.width / 2, canvas.height / 2, R);
+  vg.addColorStop(0, 'rgba(0,0,0,0)'); vg.addColorStop(1, 'rgba(0,0,0,0.8)');
+  vc.fillStyle = vg; vc.fillRect(0, 0, canvas.width, canvas.height);
+  // Red danger vignette (faded in by tension)
+  redVignetteCanvas = document.createElement('canvas'); redVignetteCanvas.width = canvas.width; redVignetteCanvas.height = canvas.height;
+  const rc = redVignetteCanvas.getContext('2d');
+  const rg = rc.createRadialGradient(canvas.width / 2, canvas.height / 2, R * 0.45, canvas.width / 2, canvas.height / 2, R);
+  rg.addColorStop(0, 'rgba(120,10,6,0)'); rg.addColorStop(1, 'rgba(150,14,8,0.55)');
+  rc.fillStyle = rg; rc.fillRect(0, 0, canvas.width, canvas.height);
+}
+
+function screenToWorld(sx, sy) {
+  const c = G.cam;
+  return { x: (sx - CW / 2) / ZOOM + c.x, y: (sy - CH / 2) / ZOOM + c.y };
+}
+
+// World-space line width that renders as ~1 CSS pixel (never thinner than 1 world unit up close)
+const linePx = () => Math.max(1, 1 / ZOOM);
+
+// Wall rendering: segments bucketed by brightness, each bucket stroked in three glow layers.
+const NB = 12;
+const wallBuckets = [[], [], []].map(() => Array.from({ length: NB }, () => []));
+function drawWalls(rt, x0, y0, x1, y1) {
+  const T = L.T, segs = L.segs;
+  for (const src of wallBuckets) for (const b of src) b.length = 0;
+  const a0 = Math.max(0, Math.floor(x0 / T - 0.5)), a1 = Math.min(L.SW - 1, Math.floor(x1 / T - 0.5));
+  const b0 = Math.max(0, Math.floor(y0 / T - 0.5)), b1 = Math.min(L.SH - 1, Math.floor(y1 / T - 0.5));
+  for (let b = b0; b <= b1; b++) for (let a = a0; a <= a1; a++) {
+    const sq = b * L.SW + a;
+    for (let k = L.sqStart[sq], k1 = L.sqStart[sq + 1]; k < k1; k++) {
+      const s = L.sqSegs[k];
+      const bp = segBright(s, rt);
+      if (bp > 0.012) wallBuckets[L.litSrc[s]][Math.min(NB - 1, Math.floor(bp / 1.5 * NB))].push(s);
+      const bf = L.flareLit[s];
+      if (bf > 0.012) {
+        const fl = bf * (0.92 + 0.08 * Math.sin(rt * 9 + s));
+        wallBuckets[2][Math.min(NB - 1, Math.floor(fl / 1.5 * NB))].push(s);
+      }
+    }
+  }
+  ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+  const px = linePx();
+  const cols = [COL.wall, COL.wallL, COL.flare];
+  for (let src = 0; src < 3; src++) {
+    const col = cols[src];
+    for (let k = 0; k < NB; k++) {
+      const list = wallBuckets[src][k];
+      if (!list.length) continue;
+      const bv = (k + 0.5) / NB * 1.5;
+      ctx.beginPath();
+      for (const s of list) { const o = s * 4; ctx.moveTo(segs[o], segs[o + 1]); ctx.lineTo(segs[o + 2], segs[o + 3]); }
+      const a = Math.min(1, bv);
+      ctx.strokeStyle = rgba(col, a * 0.07); ctx.lineWidth = 9 * px; ctx.stroke();
+      ctx.strokeStyle = rgba(col, a * 0.2); ctx.lineWidth = 3.4 * px; ctx.stroke();
+      const w = Math.max(0, bv - 0.85) * 1.6;              // hot, just-struck segments burn toward white
+      const core = [lerp(col[0], 255, w), lerp(col[1], 255, w), lerp(col[2], 255, w)];
+      ctx.strokeStyle = rgba(core, Math.min(1, a * 1.05)); ctx.lineWidth = 1.3 * px; ctx.stroke();
+    }
+  }
+}
+
+function drawPings(rt) {
+  const px = linePx();
+  for (const pg of G.pings) {
+    const r = Math.min(pg.radius, (rt - pg.t0) * pg.speed);
+    if (r <= 1) continue;
+    const u = r / pg.radius;
+    const col = pg.src === 'listener' ? COL.wallL : COL.wall;
+    const a = Math.pow(1 - u, 1.15) * (pg.src === 'listener' ? 0.45 : 0.6) * pg.strength;
+    ctx.beginPath();
+    if (pg.half) ctx.arc(pg.x, pg.y, r, pg.ang - pg.half, pg.ang + pg.half);
+    else ctx.arc(pg.x, pg.y, r, 0, TAU);
+    ctx.strokeStyle = rgba(col, a * 0.18); ctx.lineWidth = (pg.kind === 'charged' ? 10 : 6) * px; ctx.stroke();
+    ctx.strokeStyle = rgba(col, a); ctx.lineWidth = (pg.kind === 'charged' ? 1.8 : 1.1) * px; ctx.stroke();
+    if (pg.half) {                                         // faint cone edges
+      ctx.beginPath();
+      for (const s of [-1, 1]) { ctx.moveTo(pg.x, pg.y); ctx.lineTo(pg.x + Math.cos(pg.ang + s * pg.half) * r, pg.y + Math.sin(pg.ang + s * pg.half) * r); }
+      ctx.strokeStyle = rgba(col, a * 0.12); ctx.lineWidth = px; ctx.stroke();
+    }
+  }
+}
+
+function revealAlpha(o, rt) {
+  let a = o.lit ? 0.85 : 0;
+  const age = rt - o.revealAt;
+  if (age >= 0 && age < o.revealDur) a = Math.max(a, Math.pow(1 - age / o.revealDur, 1.2) * (age < 0.15 ? 1 + (1 - age / 0.15) * 0.4 : 1));
+  return a;
+}
+
+function drawPickups(rt) {
+  for (const pk of G.pickups) {
+    if (pk.taken) continue;
+    const a = revealAlpha(pk, rt);
+    if (a <= 0.01) continue;
+    if (pk.kind === 'shard') {
+      const s = 5.5, rot = rt * 1.3 + pk.phase;
+      ctx.drawImage(SPR.glow, pk.x - 22, pk.y - 22, 44, 44);
+      ctx.save(); ctx.translate(pk.x, pk.y); ctx.rotate(rot);
+      ctx.beginPath(); ctx.moveTo(0, -s * 1.5); ctx.lineTo(s, 0); ctx.lineTo(0, s * 1.5); ctx.lineTo(-s, 0); ctx.closePath();
+      ctx.strokeStyle = rgba(COL.shard, a); ctx.lineWidth = 1.3; ctx.stroke();
+      ctx.fillStyle = rgba(COL.shard, a * 0.25); ctx.fill();
+      ctx.restore();
+    } else {
+      ctx.globalAlpha = a * 0.7;
+      ctx.drawImage(SPR.flare, pk.x - 30, pk.y - 30, 60, 60);
+      ctx.globalAlpha = 1;
+      ctx.save(); ctx.translate(pk.x, pk.y); ctx.rotate(0.6);
+      ctx.strokeStyle = rgba(COL.flare, a); ctx.lineWidth = 2.2;
+      ctx.beginPath(); ctx.moveTo(0, -7); ctx.lineTo(0, 7); ctx.stroke();
+      ctx.fillStyle = rgba([255, 255, 255], a); ctx.beginPath(); ctx.arc(0, -7, 2.2, 0, TAU); ctx.fill();
+      ctx.restore();
+    }
+  }
+}
+
+function drawExit(rt) {
+  const ex = G.exit;
+  if (!ex) return;
+  const a = revealAlpha(ex, rt);
+  if (a <= 0.01) return;
+  const pulse = 0.75 + 0.25 * Math.sin(rt * 3.2);
+  ctx.globalAlpha = a * pulse;
+  ctx.drawImage(SPR.exit, ex.x - 70, ex.y - 70, 140, 140);
+  ctx.globalAlpha = 1;
+  for (let i = 0; i < 4; i++) {
+    const ph = (rt * 0.45 + i / 4) % 1;
+    const r = 6 + ph * 30;
+    ctx.beginPath(); ctx.arc(ex.x, ex.y, r, 0, TAU);
+    ctx.strokeStyle = rgba(COL.exit, a * (1 - ph) * 0.8); ctx.lineWidth = 1.2; ctx.stroke();
+  }
+  ctx.save(); ctx.translate(ex.x, ex.y); ctx.rotate(rt * 0.6);
+  ctx.beginPath();
+  for (let i = 0; i < 3; i++) { const b = i * TAU / 3; ctx.moveTo(Math.cos(b) * 13, Math.sin(b) * 13); ctx.arc(0, 0, 13, b, b + 1.2); }
+  ctx.strokeStyle = rgba([230, 215, 255], a); ctx.lineWidth = 1.6; ctx.stroke();
+  ctx.restore();
+  ctx.fillStyle = rgba([245, 238, 255], a * pulse); ctx.beginPath(); ctx.arc(ex.x, ex.y, 3, 0, TAU); ctx.fill();
+}
+
+function drawFlares(rt) {
+  for (const f of G.flares) {
+    const fl = 0.85 + 0.1 * Math.sin(rt * 17 + f.seed) + 0.05 * Math.sin(rt * 43 + f.seed * 3);
+    const R = CFG.FLARE_R * 1.15;
+    ctx.globalAlpha = 0.55 * fl;
+    ctx.drawImage(SPR.flare, f.x - R, f.y - R, R * 2, R * 2);
+    ctx.globalAlpha = 1;
+    ctx.fillStyle = rgba([240, 255, 245], 0.95);
+    ctx.beginPath(); ctx.arc(f.x, f.y, 2.4 * fl, 0, TAU); ctx.fill();
+  }
+}
+
+function drawStepRings(rt) {
+  for (const s of G.stepRings) {
+    const age = rt - s.t0;
+    if (age < 0 || age > 0.6) continue;
+    const u = age / 0.6;
+    ctx.beginPath(); ctx.arc(s.x, s.y, 8 + s.r * smoothstep(u), 0, TAU);
+    ctx.strokeStyle = rgba([150, 220, 215], (1 - u) * 0.09); ctx.lineWidth = 1; ctx.stroke();
+  }
+}
+
+function drawPlayer(rt, alpha) {
+  const p = G.player;
+  if (!p) return;
+  const x = lerp(p.px, p.x, alpha), y = lerp(p.py, p.y, alpha);
+  if (!p.alive) return;
+  const breathe = 0.9 + 0.1 * Math.sin(rt * 2.4);
+  const gl = (p.creeping ? 0.4 : 0.62) * breathe;
+  ctx.globalAlpha = gl;
+  ctx.drawImage(SPR.glow, x - 64, y - 64, 128, 128);
+  ctx.globalAlpha = 1;
+  ctx.beginPath(); ctx.arc(x, y, 6.5, 0, TAU);
+  ctx.strokeStyle = rgba([150, 250, 240], 0.28 * breathe); ctx.lineWidth = 1; ctx.stroke();
+  ctx.fillStyle = rgba([225, 255, 252], 0.95);
+  ctx.beginPath(); ctx.arc(x, y, 3.3, 0, TAU); ctx.fill();
+  if (p.charging && p.charge > 0) {
+    ctx.beginPath(); ctx.arc(x, y, 13, -Math.PI / 2, -Math.PI / 2 + TAU * p.charge);
+    ctx.strokeStyle = rgba(COL.wall, 0.35 + 0.5 * p.charge); ctx.lineWidth = 1.6; ctx.stroke();
+  }
+}
+
+// Creature silhouettes, drawn in local space facing +x.
+function drawCreatureShape(type, x, y, ang, phase, a) {
+  if (a <= 0.01) return;
+  const cr = COL.creature;
+  ctx.save(); ctx.translate(x, y); ctx.rotate(ang);
+  const k = Math.max(1, 0.85 / ZOOM);
+  if (k > 1) ctx.scale(Math.sqrt(k), Math.sqrt(k));
+  ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+  const edge = rgba(cr, Math.min(1, a)), limb = rgba(cr, Math.min(1, a) * 0.55), fill = rgba([190, 26, 18], Math.min(1, a) * 0.24);
+  ctx.beginPath();
+  if (type === 'crawler') {
+    for (let i = 0; i < 4; i++) {
+      const lx = -5 + i * 3.6;
+      for (const s of [-1, 1]) {
+        const sw = Math.sin(phase * 1.2 + i * 1.7 + (s > 0 ? Math.PI : 0)) * 3.4;
+        ctx.moveTo(lx, s * 3); ctx.lineTo(lx + 2 + sw * 0.4, s * 9.5); ctx.lineTo(lx + (i - 1.5) * 4.2 + sw, s * 15.5);
+      }
+    }
+    ctx.moveTo(11, -2); ctx.quadraticCurveTo(16.5, -4.5, 16, -0.5);
+    ctx.moveTo(11, 2); ctx.quadraticCurveTo(16.5, 4.5, 16, 0.5);
+    ctx.strokeStyle = limb; ctx.lineWidth = 1.1; ctx.stroke();
+    ctx.beginPath();
+    ctx.moveTo(0, 0); ctx.ellipse(-8, 0, 8, 6, 0, 0, TAU);
+    ctx.moveTo(7, 0); ctx.ellipse(2, 0, 5, 4.2, 0, 0, TAU);
+    ctx.moveTo(12, 0); ctx.ellipse(9, 0, 3, 3, 0, 0, TAU);
+    ctx.fillStyle = fill; ctx.fill(); ctx.strokeStyle = edge; ctx.lineWidth = 1.3; ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(-14, 0); ctx.lineTo(-3, 0);
+    ctx.strokeStyle = limb; ctx.lineWidth = 0.8; ctx.stroke();
+  } else if (type === 'stalker') {
+    const open = 0.5 + 0.5 * Math.sin(phase * 0.45);
+    for (const s of [-1, 1]) {
+      ctx.moveTo(-6, s * 2.5); ctx.lineTo(-12, s * 10); ctx.lineTo(-21, s * (8 + Math.sin(phase + s) * 2));
+      ctx.moveTo(1, s * 3); ctx.lineTo(-1, s * 11); ctx.lineTo(-7, s * 16);
+    }
+    ctx.strokeStyle = limb; ctx.lineWidth = 1.1; ctx.stroke();
+    ctx.beginPath();                                  // scythe forelimbs
+    for (const s of [-1, 1]) {
+      ctx.moveTo(6, s * 3); ctx.lineTo(12, s * (11 + open * 4));
+      ctx.quadraticCurveTo(24, s * (12 + open * 3), 27, s * (4 + open * 4));
+    }
+    ctx.strokeStyle = edge; ctx.lineWidth = 1.4; ctx.stroke();
+    ctx.beginPath();
+    ctx.moveTo(-22, 0); ctx.quadraticCurveTo(-6, -6.5, 10, -3); ctx.quadraticCurveTo(15, 0, 10, 3); ctx.quadraticCurveTo(-6, 6.5, -22, 0);
+    ctx.moveTo(18, 0); ctx.ellipse(14, 0, 4.2, 2.6, 0, 0, TAU);
+    ctx.fillStyle = fill; ctx.fill(); ctx.strokeStyle = edge; ctx.lineWidth = 1.3; ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(-18, 0); ctx.lineTo(8, 0);
+    ctx.strokeStyle = limb; ctx.lineWidth = 0.8; ctx.stroke();
+  } else {
+    for (let i = 0; i < 9; i++) {
+      const b = i / 9 * TAU, w = Math.sin(phase * 0.7 + i * 1.3) * 0.28;
+      ctx.moveTo(Math.cos(b) * 8, Math.sin(b) * 8);
+      ctx.quadraticCurveTo(Math.cos(b + w) * 17, Math.sin(b + w) * 17, Math.cos(b - w) * (24 + Math.sin(phase + i) * 2), Math.sin(b - w) * (24 + Math.sin(phase + i) * 2));
+    }
+    ctx.strokeStyle = limb; ctx.lineWidth = 1; ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(9.5, 0); ctx.arc(0, 0, 9.5, 0, TAU);
+    ctx.fillStyle = fill; ctx.fill(); ctx.strokeStyle = edge; ctx.lineWidth = 1.4; ctx.stroke();
+    ctx.beginPath();                                  // ear-like ribs and dish flares
+    ctx.arc(0, 0, 6, -1.2, 1.2); ctx.moveTo(Math.cos(-1) * 3.2, Math.sin(-1) * 3.2); ctx.arc(0, 0, 3.2, -1, 1);
+    ctx.moveTo(Math.cos(-0.9) * 14, Math.sin(-0.9) * 14); ctx.arc(0, 0, 14, -0.9, 0.9);
+    ctx.moveTo(Math.cos(Math.PI - 0.6) * 13, Math.sin(Math.PI - 0.6) * 13); ctx.arc(0, 0, 13, Math.PI - 0.6, Math.PI + 0.6);
+    ctx.strokeStyle = edge; ctx.lineWidth = 1.1; ctx.stroke();
+  }
+  ctx.restore();
+}
+
+function drawCreatureFull(type, x, y, ang, phase, a, vx, vy, mark) {
+  a = Math.min(1.3, a);
+  ctx.globalAlpha = Math.min(1, a * 0.55);
+  ctx.drawImage(SPR.red, x - 36, y - 36, 72, 72);
+  ctx.globalAlpha = 1;
+  const vl = Math.hypot(vx, vy);
+  if (vl > 10) for (let k = 2; k >= 1; k--) drawCreatureShape(type, x - vx * 0.075 * k, y - vy * 0.075 * k, ang, phase - k * 0.3, a * 0.2 / k);
+  drawCreatureShape(type, x + 1.4, y, ang, phase, a * 0.18);        // faint doubled edge, like a smeared echo
+  drawCreatureShape(type, x, y, ang, phase, a);
+  if (mark) {
+    ctx.font = `700 13px ${MONO}`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.fillStyle = rgba(mark === '!' ? [255, 90, 60] : [255, 190, 110], Math.min(1, a) * 0.95);
+    ctx.fillText(mark, x, y - 28);
+  }
+}
+
+function drawCreatures(rt, alpha) {
+  for (const g of G.ghosts) {
+    const age = rt - g.t0;
+    if (age < 0 || age > g.dur) continue;
+    let a = g.str * Math.pow(1 - age / g.dur, 1.3);
+    if (age < 0.1) a *= 1 + (1 - age / 0.1) * 0.6;
+    drawCreatureFull(g.type, g.x, g.y, g.ang, g.phase, a, g.vx, g.vy, g.mark);
+  }
+  // Live silhouettes: creatures standing in flare light, lunging at you, or the one that got you
+  for (const c of G.creatures) {
+    const live = c.inFlare || c.state === 'lunge' || c === G.killer;
+    if (!live) continue;
+    const x = lerp(c.px, c.x, alpha), y = lerp(c.py, c.y, alpha);
+    const a = c === G.killer ? 1.1 : c.state === 'lunge' ? 1 : 0.8;
+    drawCreatureFull(c.type, x, y, c.heading, c.phase, a, c.vx, c.vy, c.inFlare || c.state === 'lunge' ? c.mark() : '');
+  }
+}
+
+function drawShockRings(rt) {
+  for (const s of G.shockRings) {
+    const age = rt - s.t0;
+    if (age < 0 || age > 1.4) continue;
+    const u = age / 1.4, r = 16 + s.r * (1 - Math.pow(1 - u, 2.2));
+    ctx.beginPath(); ctx.arc(s.x, s.y, r, 0, TAU);
+    ctx.strokeStyle = rgba(COL.creature, (1 - u) * 0.12); ctx.lineWidth = 10 * linePx(); ctx.stroke();
+    ctx.strokeStyle = rgba(COL.creature, (1 - u) * 0.55); ctx.lineWidth = 1.4 * linePx(); ctx.stroke();
+  }
+}
+
+function drawParticles() {
+  for (const pt of G.particles) {
+    if (pt.dead) continue;
+    const a = pt.life / pt.max;
+    ctx.fillStyle = `rgba(${pt.r},${pt.g},${pt.b},${a})`;
+    const s = pt.size * (0.5 + a);
+    ctx.fillRect(pt.x - s / 2, pt.y - s / 2, s, s);
+  }
+}
+
+function renderWorld(alpha) {
+  const rt = G.time + alpha * CFG.STEP;
+  const c = G.cam;
+  let cx = lerp(c.px, c.x, alpha), cy = lerp(c.py, c.y, alpha);
+  const shake = REDUCED_MOTION ? G.shake * 0.25 : G.shake;
+  if (shake > 0.05) { cx += (FX.float() - 0.5) * shake * 2 / ZOOM; cy += (FX.float() - 0.5) * shake * 2 / ZOOM; }
+  ctx.setTransform(DPR * ZOOM, 0, 0, DPR * ZOOM, DPR * (CW / 2 - cx * ZOOM), DPR * (CH / 2 - cy * ZOOM));
+  const hw = CW / 2 / ZOOM + 40, hh = CH / 2 / ZOOM + 40;
+  ctx.globalCompositeOperation = 'lighter';
+  drawFlares(rt);
+  drawWalls(rt, cx - hw, cy - hh, cx + hw, cy + hh);
+  drawStepRings(rt);
+  drawExit(rt);
+  drawPickups(rt);
+  drawPings(rt);
+  drawShockRings(rt);
+  drawCreatures(rt, alpha);
+  drawParticles();
+  drawPlayer(rt, alpha);
+  ctx.globalCompositeOperation = 'source-over';
+}
+
+function renderPost() {
+  ctx.setTransform(1, 0, 0, 1, 0, 0);
+  ctx.drawImage(vignetteCanvas, 0, 0);
+  const inGame = G.state === 'playing' || G.state === 'dying' || G.state === 'paused';
+  // The hunt closing in bleeds red into the edges; slow motion crushes the frame
+  const danger = inGame ? clamp((G.tension - 0.3) / 0.7, 0, 1) : 0;
+  const slow = clamp((1 - G.timeScale) / 0.7, 0, 1);
+  if (danger > 0.01 || slow > 0.01) {
+    ctx.globalAlpha = Math.min(1, danger * (0.55 + 0.25 * Math.sin(G.realTime * 5.5)) + slow * 0.6);
+    ctx.drawImage(redVignetteCanvas, 0, 0);
+    ctx.globalAlpha = 1;
+  }
+  if (G.flash > 0.01) { ctx.fillStyle = `rgba(255,40,30,${G.flash * 0.28})`; ctx.fillRect(0, 0, canvas.width, canvas.height); }
+  ctx.globalAlpha = 0.5;
+  ctx.fillStyle = grainCanvas.pattern;
+  const ox = Math.floor(FX.float() * 192), oy = Math.floor(FX.float() * 192);
+  ctx.translate(-ox, -oy);
+  ctx.fillRect(0, 0, canvas.width + ox, canvas.height + oy);
+  ctx.setTransform(1, 0, 0, 1, 0, 0);
+  ctx.globalAlpha = 1;
+}
+
+function text(str, x, y, size, color, align = 'left', weight = 400, spacing = 0, font = MONO) {
+  ctx.font = `${weight} ${size}px ${font}`;
+  ctx.textAlign = align; ctx.textBaseline = 'middle';
+  const ls = 'letterSpacing' in ctx && spacing;
+  if (ls) { ctx.letterSpacing = spacing + 'px'; if (align === 'center') x += spacing / 2; else if (align === 'right') x += spacing; }
+  ctx.fillStyle = color;
+  ctx.fillText(str, x, y);
+  if (ls) ctx.letterSpacing = '0px';
+}
+function measure(str, size, weight = 400, spacing = 0, font = MONO) {
+  ctx.font = `${weight} ${size}px ${font}`;
+  return ctx.measureText(str).width + spacing * str.length;
+}
+function wrapLines(str, size, maxW, spacing = 0) {
+  const words = str.split(' '), lines = [];
+  let line = '';
+  for (const w of words) {
+    const test = line ? line + ' ' + w : w;
+    if (line && measure(test, size, 400, spacing) > maxW) { lines.push(line); line = w; } else line = test;
+  }
+  if (line) lines.push(line);
+  return lines;
+}
+// UI scale: comfortable on a laptop, still legible on a narrow window
+const uiScale = () => clamp(Math.min(CW / 1000, CH / 720), 0.72, 1.35);
+
+/* ═══════════════════════════ 11. UI & FLOW ═══════════════════════════ */
+const DISPLAY = '"Avenir Next", Futura, "Century Gothic", "Segoe UI", "Helvetica Neue", Arial, sans-serif';
+
+// — Echo text: glyph outlines traced with the same marching squares as the caves, lit by rings —
+const echoTextCache = new Map();
+function buildEchoText(str) {
+  if (echoTextCache.has(str)) return echoTextCache.get(str);
+  const fs = 140, cell = 3, spacing = fs * 0.14, chars = [...str];
+  const cv = document.createElement('canvas'), g = cv.getContext('2d');
+  const font = `800 ${fs}px ${DISPLAY}`;
+  g.font = font;
+  const widths = chars.map((ch) => g.measureText(ch).width);
+  const tw = widths.reduce((a, b) => a + b, 0) + spacing * (chars.length - 1);
+  cv.width = Math.ceil(tw + fs * 0.4); cv.height = Math.ceil(fs * 1.35);
+  g.font = font; g.fillStyle = '#fff'; g.textBaseline = 'middle';
+  let x = fs * 0.2;
+  chars.forEach((ch, i) => { g.fillText(ch, x, cv.height / 2); x += widths[i] + spacing; });
+  const img = g.getImageData(0, 0, cv.width, cv.height).data;
+  const W = Math.ceil(cv.width / cell) + 2, H = Math.ceil(cv.height / cell) + 2;
+  const A = new Float32Array(W * H);
+  for (let j = 1; j < H - 1; j++) for (let i = 1; i < W - 1; i++) {
+    const px = (i - 1) * cell + 1, py = (j - 1) * cell + 1;
+    let sum = 0, cnt = 0;
+    for (let oy = -2; oy <= 2; oy++) for (let ox = -2; ox <= 2; ox++) {
+      const xx = px + ox, yy = py + oy;
+      if (xx < 0 || yy < 0 || xx >= cv.width || yy >= cv.height) { cnt++; continue; }
+      sum += img[(yy * cv.width + xx) * 4 + 3]; cnt++;
+    }
+    A[j * W + i] = sum / cnt / 255;
+  }
+  const isWall = (i, j) => (A[j * W + i] > 0.5 ? 1 : 0);
+  const cross = (a0, a1) => clamp((0.5 - a0) / ((a1 - a0) || 1e-6), 0, 1);
+  const crossX = (i, j) => (i + 0.5 + cross(A[j * W + i], A[j * W + i + 1])) * cell;
+  const crossY = (i, j) => (j + 0.5 + cross(A[j * W + i], A[(j + 1) * W + i])) * cell;
+  const ms = marchSquares(W, H, cell, isWall, crossX, crossY);
+  const segs = ms.segs, n = ms.nSegs, mx = new Float32Array(n), my = new Float32Array(n);
+  let x0 = Infinity, x1 = -Infinity, y0 = Infinity, y1 = -Infinity;
+  for (let s = 0; s < n; s++) {
+    mx[s] = (segs[s * 4] + segs[s * 4 + 2]) / 2; my[s] = (segs[s * 4 + 1] + segs[s * 4 + 3]) / 2;
+    x0 = Math.min(x0, segs[s * 4], segs[s * 4 + 2]); x1 = Math.max(x1, segs[s * 4], segs[s * 4 + 2]);
+    y0 = Math.min(y0, segs[s * 4 + 1], segs[s * 4 + 3]); y1 = Math.max(y1, segs[s * 4 + 1], segs[s * 4 + 3]);
+  }
+  const et = { segs, n, mx, my, w: Math.max(1, x1 - x0), h: Math.max(1, y1 - y0), cx: (x0 + x1) / 2, cy: (y0 + y1) / 2 };
+  if (echoTextCache.size >= 6) for (const k of echoTextCache.keys()) if (k.startsWith('DEPTH')) { echoTextCache.delete(k); break; }
+  echoTextCache.set(str, et);
+  return et;
+}
+
+// Rings in text space: origins given as fractions of the word's width/height from its centre
+function periodicRings(et, t, period, origins, start = 0) {
+  const out = [], k = Math.floor((t - start) / period);
+  for (let j = k - 1; j <= k; j++) {
+    if (j < 0) continue;
+    const o = origins[j % origins.length];
+    out.push({ t0: start + j * period, x: et.cx + o[0] * et.w, y: et.cy + o[1] * et.h });
+  }
+  return out;
+}
+
+const ET_NB = 10, etBuckets = Array.from({ length: ET_NB }, () => []);
+function drawEchoText(et, cx, cy, width, t, o) {
+  const s = width / et.w, fade = o.alpha == null ? 1 : o.alpha;
+  if (fade <= 0.005) return;
+  ctx.setTransform(DPR * s, 0, 0, DPR * s, DPR * (cx - et.cx * s), DPR * (cy - et.cy * s));
+  for (const b of etBuckets) b.length = 0;
+  const rings = o.rings, decay = o.decay || 1.7, speed = o.speed || et.w * 1.1, base = o.base || 0;
+  for (let i = 0; i < et.n; i++) {
+    let b = base;
+    for (const r of rings) {
+      const age = t - r.t0 - Math.hypot(et.mx[i] - r.x, et.my[i] - r.y) / speed;
+      if (age >= 0 && age < decay) {
+        let v = Math.pow(1 - age / decay, 1.5);
+        if (age < 0.12) v *= 1 + (1 - age / 0.12) * 0.6;
+        if (v > b) b = v;
+      }
+    }
+    b *= fade;
+    if (b > 0.01) etBuckets[Math.min(ET_NB - 1, Math.floor(b / 1.6 * ET_NB))].push(i);
+  }
+  ctx.globalCompositeOperation = 'lighter'; ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+  const col = o.color || COL.wall;
+  for (let k = 0; k < ET_NB; k++) {
+    const list = etBuckets[k];
+    if (!list.length) continue;
+    const bv = (k + 0.5) / ET_NB * 1.6, a = Math.min(1, bv);
+    ctx.beginPath();
+    for (const i of list) { const q = i * 4; ctx.moveTo(et.segs[q], et.segs[q + 1]); ctx.lineTo(et.segs[q + 2], et.segs[q + 3]); }
+    ctx.strokeStyle = rgba(col, a * 0.08); ctx.lineWidth = 11 / s; ctx.stroke();
+    ctx.strokeStyle = rgba(col, a * 0.22); ctx.lineWidth = 3.8 / s; ctx.stroke();
+    const w = Math.max(0, bv - 0.85) * 1.6;
+    ctx.strokeStyle = rgba([lerp(col[0], 255, w), lerp(col[1], 255, w), lerp(col[2], 255, w)], a); ctx.lineWidth = 1.35 / s; ctx.stroke();
+  }
+  if (o.showRings) {
+    for (const r of rings) {
+      const rr = (t - r.t0) * speed, f = 1 - rr / (et.w * 1.4);
+      if (rr <= 0 || f <= 0) continue;
+      ctx.beginPath(); ctx.arc(r.x, r.y, rr, 0, TAU);
+      ctx.strokeStyle = rgba(col, f * 0.16 * fade); ctx.lineWidth = 1.2 / s; ctx.stroke();
+    }
+  }
+  ctx.globalCompositeOperation = 'source-over';
+  ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
+}
+
+// — Hints: one line at a time, fading in and out at the bottom of the screen —
+const Hints = {
+  queue: [], cur: null, seen: new Set(),
+  show(id, str, dur = 5) {
+    if (this.seen.has(id)) return;
+    this.seen.add(id);
+    this.queue.push({ id, str, dur, t: 0 });
+  },
+  skip(id) {                                  // the player already did it — don't lecture
+    this.seen.add(id);
+    this.queue = this.queue.filter((h) => h.id !== id);
+    if (this.cur && this.cur.id === id && this.cur.t < this.cur.dur) this.cur.t = this.cur.dur;
+  },
+  clear() { this.queue.length = 0; this.cur = null; },
+  update(dt) {
+    if (this.cur) { this.cur.t += dt; if (this.cur.t > this.cur.dur + 0.4) this.cur = null; }
+    if (!this.cur && this.queue.length) this.cur = this.queue.shift();
+  },
+  render() { if (this.cur) renderHintPanel(this.cur); },
+};
+
+// — Tutorial (depth 1, until the player has once reached depth 2) —
+const Tut = {
+  active: false, moved: 0, t: 0,
+  begin() {
+    this.active = G.depth === 1 && !store.get('echo.tutorial', false);
+    this.moved = 0; this.t = 0;
+    if (this.active) Hints.show('move', 'WASD or arrow keys to move.', 4);
+    else if (G.depth === 1) Hints.show('keys', 'WASD move  ·  SPACE ping, hold to charge  ·  RIGHT-CLICK focused ping  ·  C creep  ·  F flare', 6);
+  },
+  update(dt) {
+    if (!this.active) return;
+    const p = G.player;
+    this.t += dt;
+    this.moved += Math.hypot(p.x - p.px, p.y - p.py);
+    if (this.moved > 90) { Hints.skip('move'); Hints.show('ping', 'SPACE or click sends a ping. Its echo shows you the walls.', 5); }
+    if (this.t > 45) Hints.show('creep', 'Hold C to creep. Silent. Nothing down here can see — but everything can hear.', 6);
+  },
+  onPing(kind) {
+    if (!this.active) return;
+    Hints.skip('ping');
+    if (kind === 'normal') Hints.show('charge', 'Hold to charge a wider ping. Louder too — heard from much farther away.', 5.5);
+    if (kind === 'charged') { Hints.skip('charge'); Hints.show('dir', 'Right-click (or Shift) sends a quiet, narrow ping toward the cursor.', 5.5); }
+    if (kind === 'dir') { Hints.skip('dir'); Hints.show('creep', 'Hold C to creep. Silent. Nothing down here can see — but everything can hear.', 6); }
+  },
+};
+
+const introSeen = store.get('echo.intro', {});
+function introCreatures() {
+  const seen = introSeen, types = new Set(G.creatures.map((c) => c.type));
+  if (types.has('stalker') && !seen.stalker) {
+    Hints.show('i-stalker', 'Something breathes down here. STALKERS are fast, but move only while they can hear you. Silence stops them cold.', 7);
+    seen.stalker = 1;
+  }
+  if (types.has('listener') && !seen.listener) {
+    Hints.show('i-listener', 'LISTENERS never move. They echolocate: freeze when their amber ring passes, and never ping near one.', 7);
+    seen.listener = 1;
+  }
+  store.set('echo.intro', seen);
+}
+
+// — Game flow —
+function setCursor(show) {
+  const v = show ? 'default' : 'none';
+  if (canvas.style.cursor !== v) canvas.style.cursor = v;
+}
+
+function resetWorldLists() {
+  G.pings.length = 0; G.ghosts.length = 0; G.particles.length = 0; G.flares.length = 0;
+  G.stepRings.length = 0; G.shockRings.length = 0; G.pickups = []; G.creatures = [];
+  G.exit = null; G.killer = null; G.tension = 0; G.slowTimer = 0; G.timeScale = 1;
+}
+
+function setupTitle() {
+  G.state = 'title';
+  Audio.detachVoices();
+  Hints.clear();
+  resetWorldLists();
+  G.time = 0; G.depth = 5;
+  G.lvl = L = generateLevel(randomSeed(), 5);
+  G.player = { x: -1e6, y: -1e6, px: -1e6, py: -1e6, vx: 0, vy: 0, alive: false, noise: 0, flares: 0 };
+  G.creatures = L.spawns.map((s) => new Creature(s.type, s.x, s.y, 5));
+  G.levelStart = -10;
+  const open = [];
+  for (let c = 0; c < L.W * L.H; c++) if (L.clr[c] >= 30) open.push(c);
+  if (open.length < 10) for (let c = 0; c < L.W * L.H; c++) if (L.clr[c] >= 16) open.push(c);
+  G.demo = { open, next: 0.5, tx: 0, ty: 0, t0: G.realTime };
+  const c0 = cellCenter(open[Math.floor(FX.float() * open.length)]);
+  G.cam.x = G.cam.px = c0.x; G.cam.y = G.cam.py = c0.y;
+  pickDemoTarget();
+  G.best = store.get('echo.best', null);
+  setCursor(true);
+}
+function pickDemoTarget() {
+  const d = G.demo;
+  for (let k = 0; k < 40; k++) {
+    const c = cellCenter(d.open[Math.floor(FX.float() * d.open.length)]);
+    const dist = Math.hypot(c.x - G.cam.x, c.y - G.cam.y);
+    if (dist > 250 && dist < 900) { d.tx = c.x; d.ty = c.y; return; }
+  }
+  const c = cellCenter(d.open[0]); d.tx = c.x; d.ty = c.y;
+}
+function updateTitle(dt) {
+  G.time += dt;
+  const c = G.cam, d = G.demo;
+  c.px = c.x; c.py = c.y;
+  const dx = d.tx - c.x, dy = d.ty - c.y, dl = Math.hypot(dx, dy);
+  if (dl < 40) pickDemoTarget(); else { c.x += dx / dl * 24 * dt; c.y += dy / dl * 24 * dt; }
+  d.next -= dt;
+  if (d.next <= 0) {
+    d.next = 1.3 + FX.float() * 1.3;
+    for (let k = 0; k < 30; k++) {
+      const p = cellCenter(d.open[Math.floor(FX.float() * d.open.length)]);
+      if (Math.hypot(p.x - c.x, p.y - c.y) < 480) { createPing('player', p.x, p.y, { radius: 240 + FX.float() * 240, speed: 380, reveal: 2.8, strength: 0.55 }); break; }
+    }
+  }
+  for (const cr of G.creatures) { cr.px = cr.x; cr.py = cr.y; }
+  updateCreatures(dt);
+  updatePings();
+  for (let i = G.ghosts.length - 1; i >= 0; i--) if (G.time - G.ghosts[i].t0 > G.ghosts[i].dur) G.ghosts.splice(i, 1);
+}
+
+function startRun(seed) {
+  Audio.init();
+  resetWorldLists();
+  Hints.clear();
+  G.runSeed = seed >>> 0;
+  G.shards = 0; G.pingCount = 0; G.player = null; G.time = 0;
+  G.pendingDepth = 1;
+  G.state = 'descending'; G.descendT = 0.9; G.descendLoaded = false; G.descendFrom = null; G.levelShards = 0;
+  G.runStart = G.realTime;
+  setCursor(false);
+}
+
+function reachExit() {
+  if (G.state !== 'playing') return;
+  const ex = G.exit;
+  Audio.exit();
+  for (let i = 0; i < 50; i++) {
+    const a = FX.float() * TAU, s = 40 + FX.float() * 200;
+    spawnParticle(ex.x, ex.y, Math.cos(a) * s, Math.sin(a) * s, 0.6 + FX.float() * 0.8, 200, 170, 255, 1.8);
+  }
+  if (G.depth === 1) store.set('echo.tutorial', true);
+  G.player.charging = false; G.player.charge = 0;
+  G.pendingDepth = G.depth + 1;
+  G.descendFrom = { x: ex.x, y: ex.y };
+  G.state = 'descending'; G.descendT = 0; G.descendLoaded = false;
+  Hints.clear();
+}
+
+function updateDescent(dt) {
+  G.descendT += dt;
+  if (!G.descendLoaded && G.descendT >= 0.9) {
+    loadLevel(G.pendingDepth);
+    HUD.reset();
+    G.descendLoaded = true;
+  }
+  if (G.descendT >= 2.75) {
+    G.state = 'playing'; G.fadeIn = 1;
+    Input.dirPing = false; Input.pingReleased = false;
+    HUD.bootT = 0;
+    Tut.begin();
+    introCreatures();
+  }
+}
+
+function pauseGame() {
+  if (G.state !== 'playing') return;
+  G.state = 'paused';
+  Input.reset();
+  G.player.charging = false; G.player.charge = 0; G.player.holdT = 0;
+  Audio.suspend();
+  setCursor(true);
+}
+function resumeGame() {
+  if (G.state !== 'paused') return;
+  G.state = 'playing';
+  Audio.resume();
+  lastFrame = performance.now();
+  setCursor(false);
+}
+
+// — Hooks called by the simulation —
+function onPingFired(kind, charge) {
+  G.pingCount = (G.pingCount || 0) + 1;
+  const last = G.pings[G.pings.length - 1];
+  Audio.ping(kind, charge, last ? last.ang : 0);
+  Tut.onPing(kind);
+}
+function onFootstep(sp) { Audio.footstep(sp); }
+function onBump() { Audio.bump(); }
+function onFlarePlaced() { Hints.skip('flare'); }
+function onPickupRevealed(pk) { if (pk.kind === 'shard' && Tut.active) Hints.show('shard', 'Echo shards. Collect them — they are all the light you get to keep.', 4.5); }
+function onExitRevealed() {
+  if (G.state === 'playing') HUD.contact('exit', '', G.exit.x, G.exit.y, 'exit');
+  if (G.depth === 1) Hints.show('exit', 'That violet pulse is the way down. Reach it.', 4.5);
+}
+function onCreatureAlerted() {}
+function onCreatureRevealed(c, pg) {
+  if (pg.src === 'player' && G.state === 'playing') { Audio.contact(c); HUD.contact(c.type, c.mark(), c.x, c.y, c); }
+  if (c.type === 'crawler' && G.state === 'playing') {
+    if (!introSeen.crawler) { Hints.show('i-crawler', 'A CRAWLER. Blind — it hunts what it hears. Back away quietly.', 5.5); introSeen.crawler = 1; store.set('echo.intro', introSeen); }
+  }
+}
+function onListenerAlarm(c) {
+  Audio.alarm(c);
+  if (G.state === 'playing') HUD.contact('listener', 'shriek', c.x, c.y, c);
+  if (G.state === 'playing') Hints.show('alarm', 'A Listener shrieked. Everything near it is coming to where you stood — move.', 5);
+}
+function onListenerCharging(c) { Audio.listenerClicks(c); }
+function onListenerPing(c) { Audio.listenerPing(c); }
+function onListenerMissed() { if (G.state === 'playing') Hints.show('still', 'Its echo passed over you. Stillness hides you from a Listener.', 4.5); }
+function onLunge(c) { Audio.lunge(c); }
+function onDeath(c) {
+  Audio.death();
+  const best = store.get('echo.best', null);
+  const run = { depth: G.depth, shards: G.shards, seed: G.runSeed };
+  G.newBest = !best || run.depth > best.depth || (run.depth === best.depth && run.shards > best.shards);
+  if (G.newBest) store.set('echo.best', run);
+  G.best = G.newBest ? run : best;
+  G.deathLine = {
+    crawler: 'A Crawler found you in the dark.',
+    stalker: 'A Stalker heard you move.',
+    listener: 'You walked into a Listener.',
+  }[c.type];
+  Hints.clear();
+}
+
+// — Screens —
+function drawKeyList(cx, y, u, alpha) {
+  const rows = [
+    ['WASD / ARROWS', 'move'],
+    ['SPACE / CLICK', 'ping'],
+    ['HOLD', 'charged ping — wider, louder'],
+    ['RIGHT-CLICK / SHIFT', 'focused ping — narrow, quiet'],
+    ['C / CTRL', 'creep — silent, slow'],
+    ['F', 'plant a flare'],
+    ['ESC · M', 'pause · mute'],
+  ];
+  const size = Math.round(11.5 * u), lh = size * 1.95;
+  rows.forEach(([k, v], i) => {
+    const yy = y + i * lh;
+    text(k, cx - 12 * u, yy, size, `rgba(95,245,228,${0.85 * alpha})`, 'right', 500, 1.5);
+    text(v, cx + 12 * u, yy, size, `rgba(190,215,212,${0.62 * alpha})`, 'left', 400, 0.5);
+  });
+  return rows.length * lh;
+}
+
+function renderTitle() {
+  ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
+  const u = uiScale(), t = G.realTime - G.demo.t0;
+  // hush the demo cave behind the type
+  const g = ctx.createRadialGradient(CW / 2, CH * 0.42, 0, CW / 2, CH * 0.42, Math.max(CW, CH) * 0.6);
+  g.addColorStop(0, 'rgba(2,4,5,0.78)'); g.addColorStop(1, 'rgba(2,4,5,0.25)');
+  ctx.fillStyle = g; ctx.fillRect(0, 0, CW, CH);
+
+  const et = buildEchoText('ECHO');
+  const w = Math.min(CW * 0.7, 640 * u), h = w * et.h / et.w, ty = CH * 0.3;
+  const rings = periodicRings(et, t, 3.6, [[-0.62, 0.1], [0.62, -0.2], [0, 0.9], [-0.2, -0.9]], 0.2);
+  drawEchoText(et, CW / 2, ty, w, t, { rings, base: 0.07 + 0.05 * smoothstep(clamp(t / 3, 0, 1)), showRings: true });
+  const a1 = smoothstep(clamp((t - 0.8) / 1.2, 0, 1));
+  text('EVERY SOUND YOU MAKE IS HEARD', CW / 2, ty + h / 2 + 34 * u, Math.round(12 * u), `rgba(170,215,210,${0.7 * a1})`, 'center', 400, 5 * u);
+
+  const a2 = smoothstep(clamp((t - 1.4) / 1.2, 0, 1));
+  const listH = drawKeyList(CW / 2, ty + h / 2 + 96 * u, u, a2);
+
+  const a3 = smoothstep(clamp((t - 2.0) / 1, 0, 1)) * (0.55 + 0.45 * Math.sin(G.realTime * 2.6));
+  const py = Math.min(CH - 70 * u, ty + h / 2 + 96 * u + listH + 30 * u);
+  text('PRESS ANY KEY TO DESCEND', CW / 2, py, Math.round(13 * u), `rgba(225,255,250,${a3})`, 'center', 500, 6 * u);
+
+  const a4 = 0.5 * a2;
+  const b = G.best;
+  if (b) text(`DEEPEST  ${String(b.depth).padStart(2, '0')}  ·  ${b.shards} SHARDS`, 24, CH - 26, Math.round(10.5 * u), `rgba(178,140,255,${a4 * 1.4})`, 'left', 500, 2);
+  text('HEADPHONES RECOMMENDED', CW - 24, CH - 26, Math.round(10.5 * u), `rgba(170,215,210,${a4})`, 'right', 400, 2);
+}
+
+// ═════════════════════════════ HUD — the sonar console ═════════════════════════════
+// Visual language: a sci-fi FUI instrument. 1px linework, corner brackets and tick scales; glow is
+// reserved for live values. Every state carries text and shape as well as colour. Captions sit at
+// ≥ 4.5:1 against the cave ground, and a soft scrim keeps each module legible over lit rock.
+const HT = {
+  ink: [95, 245, 228],      // sonar — primary
+  text: [212, 242, 238],    // readouts
+  label: [150, 200, 196],   // captions (used at α ≥ .75)
+  warn: [255, 176, 92],     // heard / loud
+  danger: [255, 78, 58],    // creatures / hunted
+  exit: [178, 140, 255],    // portal / records
+  shard: [222, 234, 255],
+  flare: [205, 255, 215],
+};
+const SCOPE_RANGE = 1400;               // world units at the scope's rim
+const UNITS_PER_M = 16;                 // one cave cell = 2 m
+const meters = (v) => Math.max(0, Math.round(v / UNITS_PER_M));
+const easeOut = (t) => 1 - Math.pow(1 - clamp(t, 0, 1), 3);
+const hfs = (n, u) => Math.max(11, Math.round(n * u * 2) / 2);   // HUD type never drops below 11px
+const hudScale = () => clamp(uiScale(), 0.94, 1.35);             // …so its spacing can't either
+const mixCol = (c1, c2, t) => [lerp(c1[0], c2[0], t), lerp(c1[1], c2[1], t), lerp(c1[2], c2[2], t)];
+const huntTint = () => (G.player && G.player.alive ? clamp((G.tension - 0.3) / 0.5, 0, 1) : 0);   // the instrument reddens as the hunt closes
+// Snap a line coordinate so 1px strokes land on whole device pixels
+const crisp = (v, lw = 1) => { const d = Math.round(v * DPR), w = Math.round(lw * DPR); return (w % 2 ? d + 0.5 : d) / DPR; };
+
+const HUD = {
+  bootT: 10, aimT: 0, consoleTop: 1e9,
+  noise: new Float32Array(120), noiseI: 0, noiseAcc: 0,      // 4 s of hydrophone at 30 Hz
+  contacts: [], shardFlash: 0, flareFlash: 0, readyFlash: 0, wasReady: true, best: 0,
+  reset() {
+    this.bootT = 0; this.noise.fill(0); this.noiseI = 0; this.noiseAcc = 0; this.contacts.length = 0;
+    this.shardFlash = 0; this.flareFlash = 0; this.readyFlash = 0; this.wasReady = true;
+    const b = store.get('echo.best', null);
+    this.best = b ? b.depth : 0;
+  },
+  update(dt) {
+    this.bootT = Math.min(10, this.bootT + dt);
+    this.shardFlash = Math.max(0, this.shardFlash - dt / 0.45);
+    this.flareFlash = Math.max(0, this.flareFlash - dt / 0.45);
+    this.readyFlash = Math.max(0, this.readyFlash - dt / 0.3);
+    this.aimT += ((Input.shift() ? 1 : 0) - this.aimT) * Math.min(1, dt * 14);
+    const p = G.player;
+    if (!p) return;
+    const ready = p.pingCD <= 0;
+    if (ready && !this.wasReady) this.readyFlash = 1;
+    this.wasReady = ready;
+    this.noiseAcc += dt;
+    while (this.noiseAcc >= 1 / 30) {
+      this.noiseAcc -= 1 / 30;
+      this.noise[this.noiseI] = p.noise;
+      this.noiseI = (this.noiseI + 1) % this.noise.length;
+    }
+    for (let i = this.contacts.length - 1; i >= 0; i--) if (G.realTime - this.contacts[i].t0 > 4.9) this.contacts.splice(i, 1);
+  },
+  // A sonar contact report: newest on top, one line per thing, refreshed when pinged again
+  contact(kind, mark, x, y, id) {
+    const i = this.contacts.findIndex((c) => c.id === id);
+    if (i >= 0) this.contacts.splice(i, 1);
+    this.contacts.unshift({ kind, mark, x, y, id, t0: G.realTime });
+    if (this.contacts.length > 4) this.contacts.length = 4;
+  },
+};
+
+function ghostAlpha(g, t) {
+  const age = t - g.t0;
+  if (age < 0 || age > g.dur) return 0;
+  return Math.min(1, g.str * Math.pow(1 - age / g.dur, 1.3));
+}
+
+// — Primitives —
+function drawDiamond(x, y, s, col, a, fill = 0) {
+  ctx.beginPath(); ctx.moveTo(x, y - s * 1.4); ctx.lineTo(x + s, y); ctx.lineTo(x, y + s * 1.4); ctx.lineTo(x - s, y); ctx.closePath();
+  if (fill > 0) { ctx.fillStyle = rgba(col, a * fill); ctx.fill(); }
+  ctx.strokeStyle = rgba(col, a); ctx.lineWidth = 1.2; ctx.stroke();
+}
+function drawArrow(x, y, ang, s, col, a) {
+  ctx.save(); ctx.translate(x, y); ctx.rotate(ang);
+  ctx.beginPath(); ctx.moveTo(s, 0); ctx.lineTo(-s * 0.7, -s * 0.8); ctx.lineTo(-s * 0.3, 0); ctx.lineTo(-s * 0.7, s * 0.8); ctx.closePath();
+  ctx.fillStyle = rgba(col, a); ctx.fill();
+  ctx.restore();
+}
+function bracket(x, y, sx, sy, arm, col, a) {
+  const bx = crisp(x), by = crisp(y);
+  ctx.beginPath(); ctx.moveTo(bx + sx * arm, by); ctx.lineTo(bx, by); ctx.lineTo(bx, by + sy * arm);
+  ctx.strokeStyle = rgba(col, a); ctx.lineWidth = 1; ctx.stroke();
+}
+function bracketBox(x, y, w, h, arm, col, a) {
+  bracket(x, y, 1, 1, arm, col, a); bracket(x + w, y, -1, 1, arm, col, a);
+  bracket(x, y + h, 1, -1, arm, col, a); bracket(x + w, y + h, -1, -1, arm, col, a);
+}
+function scrim(cx, cy, rx, ry, a) {
+  const g = ctx.globalAlpha;
+  ctx.globalAlpha = g * a;
+  ctx.drawImage(SPR.scrim, cx - rx, cy - ry, rx * 2, ry * 2);
+  ctx.globalAlpha = g;
+}
+function glowText(str, x, y, size, col, a, align, weight, track, blur) {
+  ctx.save();
+  ctx.shadowColor = rgba(col, 0.75 * a); ctx.shadowBlur = blur;
+  text(str, x, y, size, rgba(col, a), align, weight, track);
+  ctx.restore();
+}
+// A bordered status tag. Filled = active/urgent, outline = informational. Returns its width.
+function chip(str, x, y, size, col, a, filled, align = 'left') {
+  const padX = Math.round(size * 0.6), h = Math.round(size * 1.7);
+  const w = Math.round(measure(str, size, 600, 1.5) + padX * 2 - 1.5);
+  const left = align === 'right' ? x - w : x, top = Math.round(y - h / 2);
+  if (filled) { ctx.fillStyle = rgba(col, 0.17 * a); ctx.fillRect(left, top, w, h); }
+  ctx.strokeStyle = rgba(col, 0.72 * a); ctx.lineWidth = 1;
+  ctx.strokeRect(crisp(left), crisp(top), w, h);
+  text(str, left + padX, y + 0.5, size, rgba(col, a), 'left', 600, 1.5);
+  return w;
+}
+
+// — Modules —
+function drawScreenFrame(u, a) {
+  if (a <= 0) return;
+  const tint = huntTint(), col = mixCol(HT.ink, HT.danger, tint);
+  const i = Math.round(12 * u), arm = 22 * u * (0.3 + 0.7 * a) * (1 + 0.35 * tint), al = (0.28 + 0.3 * tint) * a;
+  bracket(i, i, 1, 1, arm, col, al); bracket(CW - i, i, -1, 1, arm, col, al);
+  bracket(i, CH - i, 1, -1, arm, col, al); bracket(CW - i, CH - i, -1, -1, arm, col, al);
+  ctx.strokeStyle = rgba(col, 0.22 * a); ctx.lineWidth = 1;
+  ctx.beginPath();
+  for (const k of [-1, 0, 1]) {                         // registration ticks at each edge's centre
+    const l = (k ? 4 : 9) * u, ox = crisp(CW / 2 + k * 10 * u), oy = crisp(CH / 2 + k * 10 * u);
+    ctx.moveTo(ox, i); ctx.lineTo(ox, i + l); ctx.moveTo(ox, CH - i); ctx.lineTo(ox, CH - i - l);
+    ctx.moveTo(i, oy); ctx.lineTo(i + l, oy); ctx.moveTo(CW - i, oy); ctx.lineTo(CW - i - l, oy);
+  }
+  ctx.stroke();
+}
+
+function drawDepthModule(x, y, u, a) {
+  if (a <= 0) return;
+  ctx.globalAlpha = a;
+  scrim(x + 80 * u, y + 42 * u, 200 * u, 115 * u, 0.9);
+  const depth = G.depth, best = HUD.best;
+  text('DEPTH', x, y + 4 * u, hfs(11, u), rgba(HT.label, 0.85), 'left', 600, 4);
+  const num = String(depth).padStart(2, '0'), ns = Math.round(46 * u);
+  glowText(num, x - 3 * u, y + 40 * u, ns, HT.ink, 1, 'left', 200, 1, 16 * u);
+  const nx = x + measure(num, ns, 200, 1) + 10 * u;
+  text(`−${depth * 40} m`, nx, y + 30 * u, hfs(13, u), rgba(HT.text, 0.92), 'left', 400, 1);
+  if (best > 0) {
+    const past = depth > best;
+    text(past ? 'PAST RECORD' : `RECORD ${String(best).padStart(2, '0')}`, nx, y + 49 * u, hfs(11, u), rgba(HT.exit, past ? 0.7 + 0.3 * Math.sin(G.realTime * 3) : 0.9), 'left', 600, 2);
+  }
+  // Depth tape: where you are against where you've been
+  const n = clamp(Math.max(depth + 4, best + 2), 8, 20), first = Math.max(1, depth + 4 - n + 1);
+  const step = 7 * u, ty = crisp(y + 76 * u);
+  ctx.lineWidth = 1;
+  ctx.strokeStyle = rgba(HT.ink, 0.18);
+  ctx.beginPath(); ctx.moveTo(x, ty); ctx.lineTo(x + (n - 1) * step, ty); ctx.stroke();
+  for (let k = 0; k < n; k++) {
+    const lv = first + k, tx = crisp(x + k * step);
+    let h, col = HT.ink, al;
+    if (lv < depth) { h = 5; al = 0.6; } else if (lv === depth) { h = 13; al = 1; } else { h = lv % 5 === 0 ? 6 : 3; al = 0.26; }
+    if (lv === best && best !== depth) { col = HT.exit; al = 0.95; h = 9; }
+    ctx.strokeStyle = rgba(col, al);
+    ctx.beginPath(); ctx.moveTo(tx, ty); ctx.lineTo(tx, ty - h * u); ctx.stroke();
+  }
+  const mx = x + (depth - first) * step;
+  ctx.fillStyle = rgba(HT.ink, 1);
+  ctx.beginPath(); ctx.moveTo(mx, ty + 3 * u); ctx.lineTo(mx - 3.5 * u, ty + 8.5 * u); ctx.lineTo(mx + 3.5 * u, ty + 8.5 * u); ctx.closePath(); ctx.fill();
+  ctx.globalAlpha = 1;
+}
+
+function drawHaulModule(xr, y, u, a) {
+  if (a <= 0) return y + 70 * u;
+  const p = G.player;
+  ctx.globalAlpha = a;
+  scrim(xr - 90 * u, y + 46 * u, 210 * u, 125 * u, 0.9);
+  text('ECHO SHARDS', xr, y + 4 * u, hfs(11, u), rgba(HT.label, 0.85), 'right', 600, 4);
+  const f = HUD.shardFlash, ns = Math.round(34 * u * (1 + 0.14 * easeOut(f)));
+  const str = String(G.shards);
+  glowText(str, xr, y + 34 * u, ns, HT.shard, 1, 'right', 300, 1, (10 + 20 * f) * u);
+  const cw = measure(str, ns, 300, 1);
+  drawDiamond(xr - cw - 13 * u, y + 34 * u, 5 * u, HT.shard, 0.9, 0.25 + 0.6 * f);
+  // One pip per shard in this cave
+  let yy = y + 62 * u;
+  const total = L ? L.shards.length : 0, got = G.levelShards;
+  if (total) {
+    const sp = Math.min(11 * u, 170 * u / total);
+    for (let i = 0; i < total; i++) {
+      const px = xr - (total - 1 - i) * sp - 3 * u, on = i < got;
+      if (on && i === got - 1 && f > 0) {
+        ctx.globalAlpha = a * f; ctx.drawImage(SPR.glow, px - 14 * u, yy - 14 * u, 28 * u, 28 * u); ctx.globalAlpha = a;
+      }
+      drawDiamond(px, yy, 2.6 * u, on ? HT.shard : HT.label, on ? 0.95 : 0.4, on ? 0.85 : 0);
+    }
+    text(`${got}/${total}`, xr - total * sp - 8 * u, yy + 0.5, hfs(11, u), rgba(HT.label, 0.85), 'right', 500, 1);
+  }
+  // Flares on hand
+  if (p.flares > 0) {
+    yy += 24 * u;
+    const n = Math.min(p.flares, 6);
+    for (let i = 0; i < n; i++) {
+      const fx = xr - 3 * u - i * 10 * u;
+      ctx.strokeStyle = rgba(HT.flare, 0.9); ctx.lineWidth = 2;
+      ctx.beginPath(); ctx.moveTo(fx, yy + 6 * u); ctx.lineTo(fx, yy - 3 * u); ctx.stroke();
+      ctx.fillStyle = rgba([255, 255, 255], 0.95);
+      ctx.beginPath(); ctx.arc(fx, yy - 4.5 * u, 1.9 * u, 0, TAU); ctx.fill();
+    }
+    if (HUD.flareFlash > 0) { ctx.globalAlpha = a * HUD.flareFlash; ctx.drawImage(SPR.flare, xr - 40 * u, yy - 30 * u, 60 * u, 60 * u); ctx.globalAlpha = a; }
+    const kx = xr - n * 10 * u - 6 * u;
+    const kw = chip('F', kx, yy + 1, hfs(11, u), HT.flare, 0.95, HUD.flareFlash > 0, 'right');
+    text(p.flares > 1 ? `FLARES ×${p.flares}` : 'FLARE', kx - kw - 8 * u, yy + 1, hfs(11, u), rgba(HT.label, 0.85), 'right', 600, 3);
+  }
+  ctx.globalAlpha = 1;
+  return yy + 28 * u;
+}
+
+function drawContacts(xr, y, u, a) {
+  const list = HUD.contacts, p = G.player;
+  if (!list.length || a <= 0) return;
+  ctx.globalAlpha = a;
+  const w = Math.max(200, 214 * u), x0 = xr - w, size = hfs(12, u), rh = Math.max(24 * u, Math.round(hfs(11, u) * 1.7) + 5);
+  scrim(xr - w / 2, y + list.length * rh / 2 + 8 * u, w * 0.75, list.length * rh * 0.5 + 34 * u, 0.85);
+  text('CONTACTS', xr, y, hfs(11, u), rgba(HT.label, 0.85), 'right', 600, 4);
+  const hw = measure('CONTACTS', hfs(11, u), 600, 4);
+  ctx.strokeStyle = rgba(HT.ink, 0.2); ctx.lineWidth = 1;
+  ctx.beginPath(); ctx.moveTo(x0, crisp(y)); ctx.lineTo(xr - hw - 10 * u, crisp(y)); ctx.stroke();
+  list.forEach((c, i) => {
+    const age = G.realTime - c.t0, enter = easeOut(age / 0.22);
+    const al = enter * (age > 4.3 ? Math.max(0, 1 - (age - 4.3) / 0.6) : 1);
+    if (al <= 0.01) return;
+    const slide = (1 - enter) * 14 * u, ry = y + 22 * u + i * rh;
+    const col = c.kind === 'exit' ? HT.exit : HT.danger;
+    ctx.fillStyle = rgba(col, al);
+    ctx.fillRect(Math.round(x0 + slide), Math.round(ry - 6 * u), 2, Math.round(12 * u));
+    const name = c.kind === 'exit' ? 'PORTAL' : c.kind.toUpperCase();
+    text(name, x0 + 10 * u + slide, ry, size, rgba(col, al), 'left', 600, 2);
+    const d = Math.hypot(c.x - p.x, c.y - p.y), rs = `${meters(d)} m`;
+    text(rs, xr - 18 * u + slide, ry, size, rgba(HT.text, al), 'right', 400, 1);
+    if (c.mark) {
+      const tag = c.mark === 'shriek' ? ['SHRIEK', HT.warn, true] : c.mark === '!' ? ['HUNT', col, true] : ['SEEK', col, false];
+      chip(tag[0], xr - 18 * u - measure(rs, size, 400, 1) - 8 * u + slide, ry, hfs(11, u), tag[1], al, tag[2], 'right');
+    }
+    drawArrow(xr - 5 * u + slide, ry, Math.atan2(c.y - p.y, c.x - p.x), 5.5 * u, col, al);   // live bearing to where it echoed
+  });
+  ctx.globalAlpha = 1;
+}
+
+function drawScope(cx, cy, R, u, a) {
+  const p = G.player, rt = G.time, hm = hearMulAt(G.depth), charge = p.charging ? p.charge : 0;
+  ctx.save();
+  ctx.fillStyle = 'rgba(3,10,11,0.74)';
+  ctx.beginPath(); ctx.arc(cx, cy, R, 0, TAU); ctx.fill();
+  ctx.beginPath(); ctx.arc(cx, cy, R, 0, TAU); ctx.clip();
+  ctx.fillStyle = rgba(HT.ink, 0.035);
+  for (let sy = Math.floor(cy - R); sy < cy + R; sy += 3) ctx.fillRect(cx - R, sy, R * 2, 1);
+  ctx.lineWidth = 1;
+  ctx.strokeStyle = rgba(HT.ink, 0.1);
+  ctx.beginPath();
+  for (const k of [1 / 3, 2 / 3]) { ctx.moveTo(cx + R * k, cy); ctx.arc(cx, cy, R * k, 0, TAU); }
+  ctx.moveTo(cx - R, crisp(cy)); ctx.lineTo(cx + R, crisp(cy)); ctx.moveTo(crisp(cx), cy - R); ctx.lineTo(crisp(cx), cy + R);
+  ctx.stroke();
+  // What this ping will reveal (cyan) against how far it will be heard (amber)
+  const rr = R * Math.min(1, lerp(CFG.PING_R, CFG.CHARGED_R, charge) / SCOPE_RANGE);
+  const hr = R * Math.min(1, lerp(CFG.PING_NOISE, CFG.CHARGED_NOISE, charge) * hm / SCOPE_RANGE);
+  ctx.fillStyle = rgba(HT.ink, 0.1 + 0.12 * charge);
+  ctx.beginPath(); ctx.arc(cx, cy, rr, 0, TAU); ctx.fill();
+  ctx.strokeStyle = rgba(HT.ink, 0.8);
+  ctx.beginPath(); ctx.arc(cx, cy, rr, 0, TAU); ctx.stroke();
+  ctx.setLineDash([2 * u, 2.5 * u]); ctx.strokeStyle = rgba(HT.warn, 0.75);
+  ctx.beginPath(); ctx.arc(cx, cy, hr, 0, TAU); ctx.stroke();
+  ctx.setLineDash([]);
+  if (p.noise > 4) {                                      // the noise you're making right now
+    ctx.strokeStyle = rgba(HT.warn, 0.4);
+    ctx.beginPath(); ctx.arc(cx, cy, R * Math.min(1, p.noise * hm / SCOPE_RANGE), 0, TAU); ctx.stroke();
+  }
+  // Sweep only while a ping is ready (the one continuous motion in the HUD)
+  if (p.pingCD <= 0 && !charge && !REDUCED_MOTION) {
+    const sa = G.realTime * 2.2;
+    for (let k = 0; k < 14; k++) {
+      ctx.fillStyle = rgba(HT.ink, 0.15 * (1 - k / 14));
+      ctx.beginPath(); ctx.moveTo(cx, cy); ctx.arc(cx, cy, R, sa - (k + 1) * 0.055, sa - k * 0.055); ctx.closePath(); ctx.fill();
+    }
+    ctx.strokeStyle = rgba(HT.ink, 0.65);
+    ctx.beginPath(); ctx.moveTo(cx, cy); ctx.lineTo(cx + Math.cos(sa) * R, cy + Math.sin(sa) * R); ctx.stroke();
+  }
+  // Every sonar event in range plays out on the scope at scale
+  const sc = R / SCOPE_RANGE;
+  for (const pg of G.pings) {
+    const r = Math.min(pg.radius, (rt - pg.t0) * pg.speed), f = 1 - r / pg.radius;
+    if (r <= 0 || f <= 0) continue;
+    const ox = cx + (pg.x - p.x) * sc, oy = cy + (pg.y - p.y) * sc;
+    ctx.strokeStyle = rgba(pg.src === 'listener' ? HT.warn : HT.ink, 0.85 * f); ctx.lineWidth = 1.2;
+    ctx.beginPath();
+    if (pg.half) { ctx.moveTo(ox, oy); ctx.arc(ox, oy, r * sc, pg.ang - pg.half, pg.ang + pg.half); ctx.closePath(); }
+    else ctx.arc(ox, oy, r * sc, 0, TAU);
+    ctx.stroke();
+  }
+  for (const sr of G.shockRings) {
+    const age = rt - sr.t0, uu = age / 1.4;
+    if (uu < 0 || uu > 1) continue;
+    ctx.strokeStyle = rgba(HT.danger, 0.8 * (1 - uu)); ctx.lineWidth = 1.5;
+    ctx.beginPath(); ctx.arc(cx + (sr.x - p.x) * sc, cy + (sr.y - p.y) * sc, (16 + sr.r * (1 - Math.pow(1 - uu, 2.2))) * sc, 0, TAU); ctx.stroke();
+  }
+  ctx.lineWidth = 1;
+  // Echo blips
+  for (const g of G.ghosts) {
+    const ga = ghostAlpha(g, rt);
+    if (ga < 0.05) continue;
+    const dx = g.x - p.x, dy = g.y - p.y;
+    if (dx * dx + dy * dy > SCOPE_RANGE * SCOPE_RANGE) continue;
+    const bx = cx + dx / SCOPE_RANGE * R, by = cy + dy / SCOPE_RANGE * R;
+    ctx.globalAlpha = a * ga;
+    ctx.drawImage(SPR.red, bx - 7 * u, by - 7 * u, 14 * u, 14 * u);
+    ctx.fillStyle = rgba(HT.danger, 1); ctx.fillRect(bx - 1.5, by - 1.5, 3, 3);
+    ctx.globalAlpha = a;
+  }
+  const ex = G.exit, ea = ex ? revealAlpha(ex, rt) : 0;
+  if (ea > 0.03) {
+    const dx = ex.x - p.x, dy = ex.y - p.y, dl = Math.hypot(dx, dy), k = Math.min(1, dl / SCOPE_RANGE) * R / Math.max(1, dl);
+    ctx.globalAlpha = a * Math.min(1, ea);
+    drawDiamond(cx + dx * k, cy + dy * k, 2.6 * u, HT.exit, 1, 0.8);
+    ctx.globalAlpha = a;
+  }
+  ctx.restore();
+  // Rim and bearing ticks (tinting red while something hunts you)
+  const tint = huntTint(), rim = mixCol(HT.ink, HT.danger, tint);
+  ctx.lineWidth = 1 + tint;
+  ctx.strokeStyle = rgba(rim, 0.5 + 0.35 * tint * (REDUCED_MOTION ? 1 : 0.6 + 0.4 * Math.sin(G.realTime * 8)));
+  ctx.beginPath(); ctx.arc(cx, cy, R, 0, TAU); ctx.stroke();
+  ctx.lineWidth = 1;
+  ctx.strokeStyle = rgba(rim, 0.38);
+  ctx.beginPath();
+  for (let k = 0; k < 48; k++) {
+    const an = k / 48 * TAU, l = (k % 12 === 0 ? 5 : k % 4 === 0 ? 3 : 1.5) * u;
+    ctx.moveTo(cx + Math.cos(an) * R, cy + Math.sin(an) * R); ctx.lineTo(cx + Math.cos(an) * (R - l), cy + Math.sin(an) * (R - l));
+  }
+  ctx.stroke();
+  // Recovery ring, and the charge ring outside it
+  const ready = 1 - clamp(p.pingCD / (p.lastCD || CFG.PING_CD), 0, 1), cr = R + 6 * u;
+  ctx.lineWidth = 2;
+  ctx.strokeStyle = rgba(HT.ink, 0.13);
+  ctx.beginPath(); ctx.arc(cx, cy, cr, 0, TAU); ctx.stroke();
+  ctx.strokeStyle = rgba(HT.ink, ready >= 1 ? 0.95 : 0.5);
+  ctx.beginPath(); ctx.arc(cx, cy, cr, -Math.PI / 2, -Math.PI / 2 + TAU * ready); ctx.stroke();
+  if (HUD.readyFlash > 0) {
+    ctx.lineWidth = 7; ctx.strokeStyle = rgba(HT.ink, 0.28 * HUD.readyFlash);
+    ctx.beginPath(); ctx.arc(cx, cy, cr, 0, TAU); ctx.stroke();
+  }
+  if (charge > 0) {
+    const kr = R + 12 * u;
+    ctx.lineWidth = 2.5; ctx.strokeStyle = rgba(HT.text, 0.55 + 0.45 * charge);
+    ctx.beginPath(); ctx.arc(cx, cy, kr, -Math.PI / 2, -Math.PI / 2 + TAU * charge); ctx.stroke();
+    ctx.lineWidth = 1; ctx.strokeStyle = rgba(HT.text, 0.5);
+    ctx.beginPath();
+    for (let q = 1; q < 4; q++) { const an = -Math.PI / 2 + q * Math.PI / 2; ctx.moveTo(cx + Math.cos(an) * (kr - 3 * u), cy + Math.sin(an) * (kr - 3 * u)); ctx.lineTo(cx + Math.cos(an) * (kr + 3 * u), cy + Math.sin(an) * (kr + 3 * u)); }
+    ctx.stroke();
+  }
+  ctx.fillStyle = rgba(HT.text, 1);
+  ctx.beginPath(); ctx.arc(cx, cy, 2.2 * u, 0, TAU); ctx.fill();
+  ctx.lineWidth = 1;
+}
+
+// Hydrophone: a streaming bar trace of your own noise. Newest on the right, history fades left.
+function drawTrace(x, y, w, h, u) {
+  const n = HUD.noise.length, bw = w / n;
+  ctx.fillStyle = 'rgba(3,10,11,0.62)'; ctx.fillRect(x, y, w, h);
+  ctx.setLineDash([2, 3]); ctx.lineWidth = 1;
+  for (const [v, col] of [[150, HT.warn], [450, HT.danger]]) {
+    const ty = crisp(y + h - h * Math.sqrt(v / 1000));
+    ctx.strokeStyle = rgba(col, 0.32);
+    ctx.beginPath(); ctx.moveTo(x, ty); ctx.lineTo(x + w, ty); ctx.stroke();
+  }
+  ctx.setLineDash([]);
+  for (let i = 0; i < n; i++) {
+    const v = HUD.noise[(HUD.noiseI + i) % n];
+    if (v < 2) continue;
+    const hh = h * Math.sqrt(Math.min(1, v / 1000)), col = v < 150 ? HT.ink : v < 450 ? HT.warn : HT.danger;
+    ctx.fillStyle = rgba(col, 0.16 + 0.84 * Math.pow(i / n, 1.6));
+    ctx.fillRect(x + i * bw, y + h - hh, Math.max(1, bw - 0.35), hh);
+  }
+  const cur = G.player.noise, ch = Math.max(1, h * Math.sqrt(Math.min(1, cur / 1000)));
+  ctx.fillStyle = rgba(HT.text, 0.95); ctx.fillRect(x + w - 1.5, y + h - ch, 1.5, ch);
+  bracketBox(x - 3 * u, y - 3 * u, w + 6 * u, h + 6 * u, 4 * u, HT.ink, 0.4);
+}
+
+function drawConsole(x, yb, u, a) {
+  HUD.consoleTop = 1e9;
+  if (a <= 0) return;
+  const p = G.player;
+  ctx.globalAlpha = a;
+  const R = Math.round(40 * u), cx = x + R + 8 * u, cy = yb - R - 8 * u;
+  scrim(cx + 120 * u, cy - 6 * u, 270 * u, 120 * u, 0.95);
+  drawScope(cx, cy, R, u, a);
+  const rx = cx + R + 26 * u, hm = hearMulAt(G.depth), charge = p.charging ? p.charge : 0, ready = p.pingCD <= 0;
+  const lab = hfs(11, u), val = hfs(13, u);
+  // Row 1 — sonar state
+  const y1 = cy - R + 8 * u;
+  text('SONAR', rx, y1, lab, rgba(HT.label, 0.85), 'left', 600, 4);
+  const sx = rx + measure('SONAR', lab, 600, 4) + 8 * u;
+  if (charge > 0) chip(`CHARGE ${String(Math.round(charge * 100)).padStart(3, ' ')}%`, sx, y1, lab, HT.text, 1, true);
+  else if (ready) {
+    if (HUD.readyFlash > 0) { ctx.save(); ctx.shadowColor = rgba(HT.ink, HUD.readyFlash); ctx.shadowBlur = 14 * u; chip('READY', sx, y1, lab, HT.ink, 1, true); ctx.restore(); }
+    else chip('READY', sx, y1, lab, HT.ink, 1, true);
+  } else chip(`RECOVER ${p.pingCD.toFixed(1)}s`, sx, y1, lab, HT.label, 0.9, false);
+  // Row 2 — what the next ping will do
+  const reach = lerp(CFG.PING_R, CFG.CHARGED_R, charge), heard = lerp(CFG.PING_NOISE, CFG.CHARGED_NOISE, charge) * hm;
+  const y2 = cy - 7 * u;
+  text('REACH', rx, y2, lab, rgba(HT.label, 0.85), 'left', 600, 2);
+  const rv = rx + measure('REACH', lab, 600, 2) + 7 * u;
+  text(`${meters(reach)} m`, rv, y2, val, rgba(HT.ink, 1), 'left', 500, 0.5);
+  const hx = rv + measure('000 m', val, 500, 0.5) + 14 * u;
+  text('HEARD', hx, y2, lab, rgba(HT.label, 0.85), 'left', 600, 2);
+  text(`${meters(heard)} m`, hx + measure('HEARD', lab, 600, 2) + 7 * u, y2, val, rgba(HT.warn, 1), 'left', 500, 0.5);
+  // Row 3 — hydrophone
+  const y3 = cy + 11 * u, tw = Math.max(150, 156 * u), tt = y3 + 10 * u;
+  text('HYDROPHONE', rx, y3, lab, rgba(HT.label, 0.85), 'left', 600, 3);
+  const n = p.noise;
+  const word = n < 4 ? (p.creeping ? 'SILENT' : 'QUIET') : n < 150 ? 'SOFT' : n < 450 ? 'LOUD' : 'DEAFENING';
+  const wc = n < 150 ? HT.ink : n < 450 ? HT.warn : HT.danger;
+  text(word, rx + tw, y3, lab, rgba(wc, 0.95), 'right', 700, 2);
+  drawTrace(rx, tt, tw, cy + R - tt, u);
+  // Status tags above the console
+  const sy = cy - R - 26 * u;
+  HUD.consoleTop = sy - Math.round(lab * 0.85) - 2;
+  let tx = x;
+  if (p.creeping) tx += chip('CREEPING', tx, sy, lab, HT.ink, 0.95, false) + 8 * u;
+  if (G.tension > 0.35) {
+    const blink = REDUCED_MOTION ? 1 : 0.6 + 0.4 * Math.sin(G.realTime * (5 + 7 * G.tension));
+    chip('● HUNTED', tx, sy, lab, HT.danger, blink, true);
+  }
+  ctx.globalAlpha = 1;
+}
+
+function drawSystemModule(u, a, m) {
+  if (a <= 0) return;
+  ctx.globalAlpha = a;
+  const lab = hfs(11, u), col = Audio.muted ? HT.warn : HT.label, snd = Audio.muted ? 'SOUND OFF' : 'SOUND ON';
+  if (CW >= 720) {
+    const xr = CW - m, yb = CH - m;
+    text('SEED ' + seedLabel(G.runSeed), xr, yb - 4 * u, lab, rgba(HT.label, 0.75), 'right', 500, 2);
+    const kw = chip('M', xr, yb - 26 * u, lab, col, 0.85, false, 'right');
+    text(snd, xr - kw - 8 * u, yb - 26 * u, lab, rgba(col, 0.8), 'right', 500, 2);
+  } else {
+    const y = m + 108 * u;
+    const kw = chip('M', m, y, lab, col, 0.85, false);
+    text(snd, m + kw + 8 * u, y, lab, rgba(col, 0.8), 'left', 500, 2);
+    text('SEED ' + seedLabel(G.runSeed), m, y + 22 * u, lab, rgba(HT.label, 0.75), 'left', 500, 2);
+  }
+  ctx.globalAlpha = 1;
+}
+
+// Off-screen echoes: chevrons pinned to the screen edge, pointing at where something echoed
+function drawEdgeMarkers(u, a) {
+  const p = G.player, pad = 34 * u, rt = G.time;
+  const mark = (x, y, col, al, isExit) => {
+    const s = worldToScreen(x, y);
+    if (s.x > pad && s.x < CW - pad && s.y > pad && s.y < CH - pad) return;
+    const dx = s.x - CW / 2, dy = s.y - CH / 2;
+    const t = Math.min((CW / 2 - pad) / Math.max(1e-3, Math.abs(dx)), (CH / 2 - pad) / Math.max(1e-3, Math.abs(dy)));
+    const ex = CW / 2 + dx * t, ey = CH / 2 + dy * t, ang = Math.atan2(dy, dx);
+    ctx.globalAlpha = a * al;
+    if (isExit) { ctx.drawImage(SPR.exit, ex - 18 * u, ey - 18 * u, 36 * u, 36 * u); drawDiamond(ex, ey, 5 * u, col, 1, 0.5); }
+    else drawArrow(ex, ey, ang, 8 * u, col, 1);
+    text(`${meters(Math.hypot(x - p.x, y - p.y))} m`, ex - Math.cos(ang) * 22 * u, ey - Math.sin(ang) * 16 * u, hfs(11, u), rgba(col, 1), 'center', 600, 1);
+    ctx.globalAlpha = 1;
+  };
+  for (const g of G.ghosts) { const ga = ghostAlpha(g, rt); if (ga > 0.1) mark(g.x, g.y, HT.danger, ga, false); }
+  if (G.exit) { const ea = revealAlpha(G.exit, rt); if (ea > 0.05) mark(G.exit.x, G.exit.y, HT.exit, Math.min(1, ea), true); }
+}
+
+function renderHUD() {
+  const p = G.player;
+  if (!p) return;
+  ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
+  const u = hudScale();
+  const fade = G.state === 'dying' ? Math.max(0, 1 - (G.realTime - G.deathAt) / 0.8) : 1;
+  if (fade <= 0) return;
+  const stag = (i) => fade * easeOut((HUD.bootT - i * 0.08) / 0.35);   // modules boot up in sequence
+  const m = Math.round(30 * u);
+  drawScreenFrame(u, stag(0));
+  drawEdgeMarkers(u, fade);
+  drawDepthModule(m, m, u, stag(1));
+  const cy = drawHaulModule(CW - m, m, u, stag(1));
+  drawContacts(CW - m, cy, u, stag(2));
+  drawConsole(m, CH - m, u, stag(2));
+  drawSystemModule(u, stag(3), m);
+}
+
+function renderCursor() {
+  if (!Input.mouseSeen || G.state !== 'playing') return;
+  ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
+  const p = G.player, x = Input.mouseX, y = Input.mouseY, ready = p.pingCD <= 0, k = HUD.aimT;
+  // Focused-ping cone from the player toward the reticle
+  if (k > 0.03 && p.alive) {
+    const s = worldToScreen(p.x, p.y), ang = Math.atan2(y - s.y, x - s.x), h = CFG.DIR_HALF, r0 = 16, r1 = 90;
+    ctx.fillStyle = rgba(HT.ink, 0.07 * k);
+    ctx.beginPath(); ctx.arc(s.x, s.y, r1, ang - h, ang + h); ctx.arc(s.x, s.y, r0, ang + h, ang - h, true); ctx.closePath(); ctx.fill();
+    ctx.strokeStyle = rgba(HT.ink, 0.45 * k); ctx.lineWidth = 1;
+    ctx.beginPath();
+    for (const sg of [-1, 1]) { ctx.moveTo(s.x + Math.cos(ang + sg * h) * r0, s.y + Math.sin(ang + sg * h) * r0); ctx.lineTo(s.x + Math.cos(ang + sg * h) * r1, s.y + Math.sin(ang + sg * h) * r1); }
+    ctx.stroke();
+    ctx.beginPath(); ctx.arc(s.x, s.y, r1, ang - h, ang + h); ctx.strokeStyle = rgba(HT.ink, 0.3 * k); ctx.stroke();
+  }
+  // Reticle: four ticks that turn to an X when aiming
+  const rot = k * Math.PI / 4, al = ready ? 0.9 : 0.45;
+  ctx.strokeStyle = rgba(HT.ink, al); ctx.lineWidth = 1.25;
+  ctx.beginPath();
+  for (let q = 0; q < 4; q++) { const an = rot + q * Math.PI / 2; ctx.moveTo(x + Math.cos(an) * 5, y + Math.sin(an) * 5); ctx.lineTo(x + Math.cos(an) * 10.5, y + Math.sin(an) * 10.5); }
+  ctx.stroke();
+  ctx.fillStyle = rgba(HT.text, 0.95); ctx.fillRect(x - 1, y - 1, 2, 2);
+  if (!ready) {
+    const f = 1 - clamp(p.pingCD / (p.lastCD || CFG.PING_CD), 0, 1);
+    ctx.strokeStyle = rgba(HT.ink, 0.55); ctx.lineWidth = 1.5;
+    ctx.beginPath(); ctx.arc(x, y, 14, -Math.PI / 2, -Math.PI / 2 + TAU * f); ctx.stroke();
+  }
+  if (p.charging && p.charge > 0) {
+    ctx.strokeStyle = rgba(HT.text, 0.6 + 0.4 * p.charge); ctx.lineWidth = 2;
+    ctx.beginPath(); ctx.arc(x, y, 14, -Math.PI / 2, -Math.PI / 2 + TAU * p.charge); ctx.stroke();
+  }
+  ctx.lineWidth = 1;
+}
+
+// Tutorial / intel messages arrive as a framed "SIGNAL" transmission that types itself in
+function renderHintPanel(h) {
+  const u = uiScale(), t = h.t;
+  const a = t < 0.3 ? easeOut(t / 0.3) : t > h.dur ? Math.max(0, 1 - (t - h.dur) / 0.35) : 1;
+  if (a <= 0) return;
+  const size = Math.max(12, Math.round(13.5 * u)), maxW = Math.min(CW - 72, 540 * u);
+  const lines = wrapLines(h.str, size, maxW, 0.3), lh = Math.round(size * 1.55);
+  const padX = Math.round(18 * u), padY = Math.round(14 * u), head = Math.round(20 * u);
+  const bw = Math.round(Math.max(...lines.map((l) => measure(l, size, 400, 0.3))) + padX * 2);
+  const bh = head + lines.length * lh + padY * 2 - Math.round(lh * 0.3);
+  const bottom = Math.min(CH - 168 * u, HUD.consoleTop - 14 * u);
+  const bx = Math.round(CW / 2 - bw / 2), by = Math.round(bottom - bh + (1 - a) * 8 * u);
+  ctx.globalAlpha = a;
+  ctx.fillStyle = 'rgba(3,9,10,0.78)'; ctx.fillRect(bx, by, bw, bh);
+  bracketBox(bx, by, bw, bh, 10 * u, HT.ink, 0.6);
+  const typing = !REDUCED_MOTION && t * 62 < h.str.length;
+  text('SIGNAL', bx + padX, by + padY + 2, hfs(11, u), rgba(HT.ink, 0.85), 'left', 700, 4);
+  const dotOn = typing ? Math.sin(G.realTime * 18) > 0 : true;
+  ctx.fillStyle = rgba(HT.ink, dotOn ? 0.9 : 0.25);
+  ctx.fillRect(bx + padX + measure('SIGNAL', hfs(11, u), 700, 4) + 4 * u, by + padY - 1, 4, 4);
+  let left = REDUCED_MOTION ? Infinity : Math.floor(t * 62);
+  let caretX = 0, caretY = 0;
+  lines.forEach((ln, i) => {
+    const ly = by + padY + head + i * lh + lh * 0.35;
+    const shown = ln.slice(0, Math.max(0, left));
+    left -= ln.length + 1;
+    if (!shown) return;
+    text(shown, bx + padX, ly, size, rgba(HT.text, 0.95), 'left', 400, 0.3);
+    caretX = bx + padX + measure(shown, size, 400, 0.3) + 2; caretY = ly;
+  });
+  if (typing && caretX) { ctx.fillStyle = rgba(HT.ink, 0.85); ctx.fillRect(caretX, caretY - size * 0.45, Math.max(2, size * 0.5), size * 0.9); }
+  ctx.globalAlpha = 1;
+}
+
+function worldToScreen(x, y) { return { x: (x - G.cam.x) * ZOOM + CW / 2, y: (y - G.cam.y) * ZOOM + CH / 2 }; }
+
+function renderPause() {
+  ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
+  const u = uiScale();
+  ctx.fillStyle = 'rgba(2,4,5,0.72)'; ctx.fillRect(0, 0, CW, CH);
+  text('PAUSED', CW / 2, CH * 0.24, Math.round(26 * u), 'rgba(225,255,250,0.92)', 'center', 300, 14 * u);
+  text(`DEPTH ${String(G.depth).padStart(2, '0')}  ·  ${G.shards} SHARDS  ·  SEED ${seedLabel(G.runSeed)}`, CW / 2, CH * 0.24 + 36 * u, Math.round(11 * u), 'rgba(190,225,222,0.55)', 'center', 400, 2);
+  drawKeyList(CW / 2, CH * 0.24 + 92 * u, u, 1);
+  text('ESC  RESUME   ·   M  MUTE   ·   Q  QUIT TO TITLE', CW / 2, Math.min(CH - 50 * u, CH * 0.24 + 92 * u + 7 * 11.5 * u * 1.95 + 34 * u), Math.round(11.5 * u), 'rgba(95,245,228,0.8)', 'center', 500, 3);
+}
+
+function renderDeath() {
+  ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
+  const u = uiScale(), t = G.realTime - G.deathAt - 1.6;
+  const a = smoothstep(clamp(t / 0.8, 0, 1));
+  ctx.fillStyle = `rgba(2,4,5,${0.7 * a})`; ctx.fillRect(0, 0, CW, CH);
+  const et = buildEchoText('SILENCED');
+  const w = Math.min(CW * 0.74, 620 * u), h = w * et.h / et.w;
+  const ty = Math.max(24 * u + h / 2, CH / 2 - (h + 300 * u) / 2 + h / 2);
+  const rings = periodicRings(et, t, 3.2, [[0, 0], [-0.6, 0.3], [0.6, -0.3]], 0);
+  drawEchoText(et, CW / 2, ty, w, t, { rings, base: 0.16, color: [255, 96, 72], alpha: a, showRings: true });
+  let y = ty + h / 2 + 32 * u;
+  text(G.deathLine || '', CW / 2, y, Math.round(13 * u), `rgba(255,190,170,${0.8 * a})`, 'center', 400, 1);
+
+  const a2 = smoothstep(clamp((t - 0.4) / 0.8, 0, 1));
+  y += 64 * u;
+  const cols = [['DEPTH', String(G.depth).padStart(2, '0')], ['SHARDS', String(G.shards)], ['PINGS', String(G.pingCount || 0)]];
+  const spread = Math.min(150 * u, CW / 3.4);
+  cols.forEach(([k, v], i) => {
+    const x = CW / 2 + (i - 1) * spread;
+    text(k, x, y, Math.round(10 * u), `rgba(190,225,222,${0.5 * a2})`, 'center', 500, 3);
+    text(v, x, y + 28 * u, Math.round(28 * u), `rgba(225,255,250,${0.92 * a2})`, 'center', 300, 1);
+  });
+  y += 76 * u;
+  const b = G.best;
+  if (G.newBest) text('NEW DEEPEST RUN', CW / 2, y, Math.round(11.5 * u), `rgba(178,140,255,${(0.7 + 0.3 * Math.sin(G.realTime * 3)) * a2})`, 'center', 600, 5);
+  else if (b) text(`DEEPEST  ${String(b.depth).padStart(2, '0')}  ·  ${b.shards} SHARDS`, CW / 2, y, Math.round(11 * u), `rgba(178,140,255,${0.75 * a2})`, 'center', 500, 3);
+
+  const a3 = smoothstep(clamp((t - 0.9) / 0.8, 0, 1));
+  y = Math.min(CH - 60 * u, y + 64 * u);
+  const opts = [['R', 'descend again (or click)'], ['T', 'retry seed ' + seedLabel(G.runSeed)], ['ESC', 'title']];
+  const size = Math.round(11.5 * u);
+  const widths = opts.map(([k, v]) => measure(k, size, 700, 2) + 10 * u + measure(v, size, 400, 1));
+  const gap = 34 * u, total = widths.reduce((s, x) => s + x, 0) + gap * (opts.length - 1);
+  if (total < CW - 32) {
+    let x = CW / 2 - total / 2;
+    opts.forEach(([k, v], i) => {
+      text(k, x, y, size, `rgba(95,245,228,${0.95 * a3})`, 'left', 700, 2);
+      text(v, x + measure(k, size, 700, 2) + 10 * u, y, size, `rgba(190,225,222,${0.7 * a3})`, 'left', 400, 1);
+      x += widths[i] + gap;
+    });
+  } else {
+    opts.forEach(([k, v], i) => text(`${k}  ${v}`, CW / 2, y - 20 * u + i * 20 * u, size, `rgba(95,245,228,${0.9 * a3})`, 'center', 500, 1));
+  }
+}
+
+function renderDescent() {
+  const t = G.descendT;
+  if (t < 0.9 && G.descendFrom && !G.descendLoaded) {
+    // The portal takes you: a violet-white ring swallows the screen
+    renderWorld(1); renderPost();
+    ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
+    const k = t / 0.9, s = worldToScreen(G.descendFrom.x, G.descendFrom.y), R = Math.hypot(CW, CH) * 1.1 * k * k;
+    ctx.beginPath(); ctx.arc(s.x, s.y, Math.max(1, R), 0, TAU);
+    ctx.fillStyle = `rgba(20,12,40,${0.5 * k})`; ctx.fill();
+    ctx.strokeStyle = `rgba(215,195,255,${1 - k * 0.6})`; ctx.lineWidth = 2 + 10 * k; ctx.stroke();
+    ctx.fillStyle = `rgba(2,4,5,${Math.pow(k, 1.6)})`; ctx.fillRect(0, 0, CW, CH);
+    return;
+  }
+  ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
+  const u = uiScale(), tt = t - 0.9;
+  const a = clamp(tt / 0.3, 0, 1) * clamp((1.85 - tt) / 0.45, 0, 1);
+  const label = 'DEPTH ' + String(G.pendingDepth).padStart(2, '0');
+  const et = buildEchoText(label);
+  const w = Math.min(CW * 0.6, 460 * u), h = w * et.h / et.w;
+  drawEchoText(et, CW / 2, CH * 0.44, w, tt, { rings: [{ t0: 0.05, x: et.cx - et.w * 0.62, y: et.cy }], base: 0.05, alpha: a, decay: 2.2, showRings: true });
+  text(`−${G.pendingDepth * 40} m`, CW / 2, CH * 0.44 + h / 2 + 30 * u, Math.round(11 * u), `rgba(190,225,222,${0.6 * a})`, 'center', 400, 4);
+  const cc = creatureCounts(G.pendingDepth), bits = [];
+  if (cc.crawler) bits.push(`${cc.crawler} CRAWLER${cc.crawler > 1 ? 'S' : ''}`);
+  if (cc.stalker) bits.push(`${cc.stalker} STALKER${cc.stalker > 1 ? 'S' : ''}`);
+  if (cc.listener) bits.push(`${cc.listener} LISTENER${cc.listener > 1 ? 'S' : ''}`);
+  text(bits.join('  ·  '), CW / 2, CH * 0.44 + h / 2 + 54 * u, Math.round(10 * u), `rgba(255,120,90,${0.55 * a})`, 'center', 500, 3);
+}
+
+function render(alpha) {
+  ctx.setTransform(1, 0, 0, 1, 0, 0);
+  ctx.globalCompositeOperation = 'source-over'; ctx.globalAlpha = 1;
+  ctx.fillStyle = COL.bg;
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+  const s = G.state;
+  if (s === 'title') { renderWorld(alpha); renderPost(); renderTitle(); }
+  else if (s === 'descending') renderDescent();
+  else {
+    renderWorld(alpha); renderPost();
+    if (s === 'dead') renderDeath();
+    else { renderHUD(); if (s === 'paused') renderPause(); else { Hints.render(); renderCursor(); } }
+  }
+  if (G.fadeIn > 0.005) {
+    ctx.setTransform(1, 0, 0, 1, 0, 0);
+    ctx.fillStyle = `rgba(2,4,5,${Math.pow(G.fadeIn, 1.4)})`; ctx.fillRect(0, 0, canvas.width, canvas.height);
+  }
+}
+
+// — Input —
+const GAME_KEYS = new Set(['Space', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'Tab']);
+const MODIFIERS = new Set(['ShiftLeft', 'ShiftRight', 'ControlLeft', 'ControlRight', 'AltLeft', 'AltRight', 'MetaLeft', 'MetaRight', 'CapsLock', 'Tab', 'KeyM']);
+// Some keyboards / layouts report an empty or odd e.code; fall back to e.key for the essentials.
+function keyCode(e) {
+  if (e.code) return e.code;
+  const k = e.key || '';
+  if (k === ' ' || k === 'Spacebar') return 'Space';
+  if (k === 'Escape' || k === 'Esc') return 'Escape';
+  if (k.startsWith('Arrow') || k === 'Enter' || k === 'Shift' || k === 'Tab') return k === 'Shift' ? 'ShiftLeft' : k;
+  if (k.length === 1 && /[a-z]/i.test(k)) return 'Key' + k.toUpperCase();
+  return k;
+}
+function onKeyDown(e) {
+  const code = keyCode(e);
+  if (GAME_KEYS.has(code)) e.preventDefault();
+  // Ctrl is a creep key: keep Ctrl+S / Ctrl+D etc. from opening browser dialogs mid-game
+  if (e.ctrlKey && G.state === 'playing' && /^Key[WASDCF]$/.test(code)) e.preventDefault();
+  Audio.init();
+  if (e.repeat) return;
+  Input.keys.add(code);
+  if (code === 'KeyM') { Audio.setMuted(!Audio.muted); return; }
+  switch (G.state) {
+    case 'title':
+      if (!MODIFIERS.has(code) && !e.metaKey && !e.ctrlKey && !/^F\d+$/.test(code)) startRun(randomSeed());
+      break;
+    case 'playing':
+      if (code === 'Escape' || code === 'KeyP') pauseGame();
+      else if (code === 'Space') {
+        if (Input.shift()) Input.dirPing = true;
+        else if (!Input.pingHeld) { Input.pingHeld = true; G.player.holdT = 0; }
+      } else if (code === 'KeyF') placeFlare();
+      break;
+    case 'paused':
+      if (code === 'Escape' || code === 'KeyP') resumeGame();
+      else if (code === 'KeyQ') { Audio.resume(); setupTitle(); }
+      break;
+    case 'dead':
+      if (G.realTime - G.deathAt < 2.1) break;               // don't let a panicked keypress skip the screen
+      if (code === 'KeyR' || code === 'Enter') startRun(randomSeed());
+      else if (code === 'KeyT') startRun(G.runSeed);
+      else if (code === 'Escape') setupTitle();
+      break;
+    case 'descending':
+      if (G.descendLoaded && G.descendT > 1.3 && G.descendT < 2.45) G.descendT = 2.45;
+      break;
+  }
+}
+function onKeyUp(e) {
+  const code = keyCode(e);
+  Input.keys.delete(code);
+  if (code === 'Space' && Input.pingHeld && !Input.mouseL) { Input.pingHeld = false; if (G.state === 'playing') Input.pingReleased = true; }
+}
+window.addEventListener('keydown', onKeyDown);
+window.addEventListener('keyup', onKeyUp);
+window.addEventListener('blur', () => {
+  Input.reset(); Input.mouseL = false;
+  if (G.player && G.state === 'playing') { G.player.charging = false; G.player.charge = 0; }
+  pauseGame();
+});
+document.addEventListener('visibilitychange', () => {
+  if (document.hidden) { pauseGame(); Audio.suspend(); }
+  else if (G.state !== 'paused') Audio.resume();
+});
+window.addEventListener('beforeunload', (e) => { if (G.state === 'playing') { e.preventDefault(); e.returnValue = ''; } });
+canvas.addEventListener('contextmenu', (e) => e.preventDefault());
+canvas.addEventListener('pointermove', (e) => { Input.mouseX = e.clientX; Input.mouseY = e.clientY; Input.mouseSeen = true; });
+canvas.addEventListener('pointerdown', (e) => {
+  Input.mouseX = e.clientX; Input.mouseY = e.clientY; Input.mouseSeen = true;
+  canvas.focus();
+  Audio.init();
+  if (G.state === 'title') { startRun(randomSeed()); return; }
+  if (G.state === 'paused') { resumeGame(); return; }
+  if (G.state === 'dead' && G.realTime - G.deathAt > 2.6 && e.button === 0) { startRun(randomSeed()); return; }
+  if (G.state !== 'playing') return;
+  if (e.button === 2 || (e.button === 0 && Input.shift())) Input.dirPing = true;
+  else if (e.button === 0 && !Input.pingHeld) { Input.mouseL = true; Input.pingHeld = true; G.player.holdT = 0; }
+});
+window.addEventListener('pointerup', (e) => {
+  if (e.button !== 0 || !Input.mouseL) return;
+  Input.mouseL = false;
+  if (Input.pingHeld && !Input.keys.has('Space')) { Input.pingHeld = false; if (G.state === 'playing') Input.pingReleased = true; }
+});
+
+/* ═══════════════════════════ 12. MAIN LOOP ═══════════════════════════ */
+// Fixed 60 Hz simulation on an accumulator (scaled by slow-motion), rendered with interpolation.
+const SIM_STATES = new Set(['playing', 'dying', 'dead']);
+let lastFrame = performance.now(), acc = 0;
+function frame(now) {
+  let dt = (now - lastFrame) / 1000;
+  lastFrame = now;
+  if (!(dt > 0)) dt = 0;
+  if (dt > 0.25) dt = 0.25;
+  G.realTime += dt;
+  G.shake *= Math.exp(-7 * dt);
+  G.flash *= Math.exp(-3 * dt);
+  G.fadeIn = Math.max(0, (G.fadeIn || 0) - dt * 1.5);
+  if (G.slowTimer > 0) G.slowTimer -= dt;
+  const targetScale = G.slowTimer > 0 ? (G.state === 'dying' ? 0.22 : 0.3) : 1;
+  G.timeScale += (targetScale - G.timeScale) * Math.min(1, dt * (targetScale < G.timeScale ? 18 : 5));
+
+  let alpha = 1;
+  if (G.state === 'title') {
+    acc += dt;
+    let steps = 0;
+    while (acc >= CFG.STEP && steps < 8 && G.state === 'title') { updateTitle(CFG.STEP); acc -= CFG.STEP; steps++; }
+    if (steps >= 8) acc = 0;
+    alpha = acc / CFG.STEP;
+  } else if (SIM_STATES.has(G.state)) {
+    acc += dt * G.timeScale;
+    let steps = 0;
+    while (acc >= CFG.STEP && steps < 12 && SIM_STATES.has(G.state)) {
+      savePrevPositions();
+      updateWorld(CFG.STEP);
+      acc -= CFG.STEP; steps++;
+    }
+    if (steps >= 12 || !SIM_STATES.has(G.state)) acc = 0;
+    alpha = acc / CFG.STEP;
+    if (G.state === 'dying' && G.realTime - G.deathAt > 1.6) { G.state = 'dead'; setCursor(true); }
+  } else if (G.state === 'descending') updateDescent(dt);
+
+  if (G.state === 'playing') { Hints.update(dt); Tut.update(dt); }
+  if (G.state === 'playing' || G.state === 'dying') HUD.update(dt);
+  Audio.update(dt);
+  render(alpha);
+  requestAnimationFrame(frame);
+}
+
+window.addEventListener('resize', resize);
+resize();
+setupTitle();
+requestAnimationFrame(frame);
+</script>
+</body>
+</html>
