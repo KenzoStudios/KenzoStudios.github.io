@@ -1,0 +1,1345 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>MIMSync Platform – Strategy Report</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,400;0,9..144,500;0,9..144,600;1,9..144,400;1,9..144,500;1,9..144,600&family=Hanken+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
+
+<style>
+/* ===========================================
+   FIXED 16:9 STAGE: MANDATORY BASE STYLES
+   Slides are authored at 1920×1080 and scaled as a whole.
+   =========================================== */
+html,
+body {
+    width: 100%;
+    height: 100%;
+    margin: 0;
+    overflow: hidden;
+    background: var(--stage-bg, #000);
+}
+
+.deck-viewport {
+    position: fixed;
+    inset: 0;
+    overflow: hidden;
+    background: var(--stage-bg, #000);
+}
+
+.deck-stage {
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 1920px;
+    height: 1080px;
+    overflow: hidden;
+    transform-origin: 0 0;
+    background: var(--slide-bg, #fff);
+}
+
+.slide {
+    position: absolute;
+    inset: 0;
+    width: 1920px;
+    height: 1080px;
+    overflow: hidden;
+    display: block;
+    visibility: hidden;
+    opacity: 0;
+    pointer-events: none;
+    background: var(--slide-bg, #fff);
+}
+
+.slide.active,
+.slide.visible {
+    visibility: visible;
+    opacity: 1;
+    pointer-events: auto;
+    z-index: 1;
+}
+
+img,
+video,
+canvas,
+svg {
+    max-width: 100%;
+    max-height: 100%;
+}
+
+.deck-controls {
+    position: fixed;
+    left: 50%;
+    bottom: 22px;
+    transform: translateX(-50%);
+    z-index: 1000;
+}
+
+@media print {
+    html,
+    body {
+        width: 1920px;
+        height: auto;
+        overflow: visible;
+        background: #fff;
+    }
+    .deck-viewport {
+        position: static;
+        overflow: visible;
+        background: #fff;
+    }
+    .deck-stage {
+        position: static;
+        width: auto;
+        height: auto;
+        transform: none !important;
+        background: none;
+    }
+    .slide {
+        position: relative;
+        display: block !important;
+        visibility: visible !important;
+        opacity: 1 !important;
+        pointer-events: auto !important;
+        width: 1920px;
+        height: 1080px;
+        break-after: page;
+        page-break-after: always;
+    }
+    .slide:last-child {
+        break-after: auto;
+        page-break-after: auto;
+    }
+    .deck-controls {
+        display: none !important;
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+        animation-duration: 0.01ms !important;
+        transition-duration: 0.2s !important;
+    }
+}
+
+/* ===========================================
+   DESIGN TOKENS
+   Blue Professional structure, re-keyed to the deck's own
+   artwork: navy + gold on warm cream (#f6f2eb matches the
+   diagram backgrounds so images sit seamlessly on the slide).
+   =========================================== */
+:root {
+    --stage-bg: #0a1426;
+    --slide-bg: #f6f2eb;
+    --cream: #f6f2eb;
+    --paper: #fbf8f3;
+    --navy: #13284a;
+    --navy-deep: #0b1a33;
+    --ink: #142036;
+    --muted: #4f5869;
+    --light: #858b97;
+    --gold: #b38a3c;          /* decorative lines, dots */
+    --gold-ink: #8a6522;      /* gold text on cream (AA contrast) */
+    --gold-bright: #d8b468;   /* gold on navy */
+    --line: rgba(19, 40, 74, 0.13);
+    --line-strong: rgba(19, 40, 74, 0.32);
+    --font-display: 'Fraunces', Georgia, serif;
+    --font-body: 'Hanken Grotesk', sans-serif;
+    --ease: cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+/* ===========================================
+   SLIDE CANVAS + ATMOSPHERE
+   =========================================== */
+.slide {
+    font-family: var(--font-body);
+    color: var(--ink);
+    background: var(--cream);
+    transition: opacity 0.5s ease, visibility 0s linear 0.5s;
+}
+
+.slide.active {
+    transition: opacity 0.7s ease 0.05s, visibility 0s;
+}
+
+/* Paper grain on every slide */
+.slide::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    z-index: 0;
+    opacity: 0.55;
+    background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='260' height='260'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='.8' numOctaves='2' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 0.35  0 0 0 0 0.28  0 0 0 0 0.18  0 0 0 0.06 0'/></filter><rect width='100%' height='100%' filter='url(%23n)'/></svg>");
+}
+
+.slide > * { position: absolute; z-index: 1; }
+
+/* Faint concentric orbit lines — the deck's recurring motif */
+.orbit {
+    border-radius: 50%;
+    border: 1px solid rgba(19, 40, 74, 0.07);
+    pointer-events: none;
+    z-index: 0;
+}
+.orbit.o1 { width: 1100px; height: 1100px; right: -420px; top: -620px; }
+.orbit.o2 { width: 760px; height: 760px; right: -250px; top: -450px; border-color: rgba(179, 138, 60, 0.14); }
+
+/* Dark navy bookend slides */
+.slide.dark {
+    color: var(--cream);
+    background:
+        radial-gradient(900px 700px at 76% 46%, rgba(216, 180, 104, 0.17), transparent 62%),
+        radial-gradient(1200px 900px at 0% 100%, rgba(40, 72, 128, 0.35), transparent 60%),
+        linear-gradient(155deg, #152c52 0%, #0b1a33 70%);
+}
+.slide.dark::before { opacity: 0.9; mix-blend-mode: overlay; }
+
+/* ===========================================
+   TYPE SYSTEM
+   =========================================== */
+.hdr { left: 120px; top: 92px; width: 1300px; }
+
+.sec {
+    display: flex;
+    align-items: center;
+    gap: 18px;
+    font-family: var(--font-body);
+    font-weight: 700;
+    font-size: 17px;
+    letter-spacing: 0.24em;
+    text-transform: uppercase;
+    color: var(--gold-ink);
+}
+.sec::before {
+    content: "";
+    width: 46px;
+    height: 2px;
+    background: var(--gold);
+    transform: scaleX(0);
+    transform-origin: left;
+    transition: transform 0.9s var(--ease) 0.15s;
+}
+.slide.active .sec::before { transform: scaleX(1); }
+.dark .sec { color: var(--gold-bright); }
+.dark .sec::before { background: var(--gold-bright); }
+
+h1, h2 {
+    font-family: var(--font-display);
+    font-weight: 600;
+    font-variation-settings: "opsz" 144;
+    margin: 0;
+    color: var(--navy);
+}
+h2 {
+    font-size: 78px;
+    line-height: 1.02;
+    letter-spacing: -0.028em;
+    margin-top: 22px;
+}
+.dark h1 { color: var(--cream); }
+
+/* Small uppercase region label */
+.lbl {
+    font-family: var(--font-body);
+    font-weight: 700;
+    font-size: 15px;
+    letter-spacing: 0.22em;
+    text-transform: uppercase;
+    color: var(--gold-ink);
+}
+
+/* Brand mark top-right, report title bottom-left */
+.brand {
+    right: 120px;
+    top: 100px;
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    font-weight: 700;
+    font-size: 16px;
+    letter-spacing: 0.32em;
+    color: var(--navy);
+}
+.brand::before {
+    content: "";
+    width: 9px;
+    height: 9px;
+    background: var(--gold);
+    transform: rotate(45deg);
+}
+.baseline {
+    left: 120px;
+    right: 120px;
+    bottom: 92px;
+    height: 1px;
+    background: var(--line);
+    transform: scaleX(0);
+    transform-origin: left;
+    transition: transform 1.4s var(--ease) 0.3s;
+}
+.slide.active .baseline { transform: scaleX(1); }
+.rpt {
+    left: 120px;
+    bottom: 50px;
+    font-size: 16px;
+    font-weight: 500;
+    letter-spacing: 0.06em;
+    color: var(--light);
+}
+
+/* ===========================================
+   MOTION SYSTEM
+   .rv     — fade + rise, staggered by --i
+   .rv-img — slower rise + settle for imagery
+   .hl     — headline mask reveal
+   Elements reset only after the outgoing slide has faded.
+   =========================================== */
+.rv,
+.rv-img,
+.hl {
+    opacity: 0;
+    transition-property: opacity, transform, clip-path;
+    transition-timing-function: var(--ease);
+    transition-delay: calc(var(--i, 0) * 85ms + 180ms);
+}
+.rv { transform: translateY(28px); transition-duration: 0.9s, 1.1s, 1.1s; }
+.rv-img { transform: translateY(36px) scale(0.975); transition-duration: 1.2s, 1.5s, 1.5s; }
+.hl {
+    transform: translateY(34px);
+    clip-path: inset(0 0 100% 0);
+    transition-duration: 0.9s, 1.2s, 1.2s;
+}
+.slide.active .rv,
+.slide.active .rv-img,
+.slide.active .hl {
+    opacity: 1;
+    transform: none;
+    clip-path: inset(-12% -4% -22% -4%);
+}
+.slide:not(.active) .rv,
+.slide:not(.active) .rv-img,
+.slide:not(.active) .hl {
+    transition-duration: 0s;
+    transition-delay: 0.55s;
+}
+
+@keyframes float {
+    from { transform: translateY(0); }
+    to   { transform: translateY(-16px); }
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+@keyframes kenburns {
+    from { transform: scale(1.08); }
+    to   { transform: scale(1); }
+}
+@keyframes pulse {
+    0%, 100% { opacity: 0.55; transform: scale(1); }
+    50%      { opacity: 0.85; transform: scale(1.06); }
+}
+
+/* ===========================================
+   SHARED COMPONENTS
+   =========================================== */
+.card {
+    background: var(--paper);
+    border: 1px solid var(--line);
+    border-radius: 22px;
+    box-shadow: 0 1px 0 rgba(255, 255, 255, 0.8) inset, 0 30px 60px -40px rgba(19, 40, 74, 0.35);
+    box-sizing: border-box;
+}
+.card.navy {
+    background: linear-gradient(160deg, #1a335d 0%, #0f2142 100%);
+    border-color: rgba(216, 180, 104, 0.25);
+    color: var(--cream);
+    box-shadow: 0 40px 70px -40px rgba(11, 26, 51, 0.7);
+}
+
+.list { list-style: none; margin: 0; padding: 0; }
+.list li {
+    position: relative;
+    padding: 15px 0 15px 30px;
+    border-top: 1px solid var(--line);
+    font-size: 22px;
+    line-height: 1.42;
+    color: var(--muted);
+}
+.list li:first-child { border-top: 0; padding-top: 4px; }
+.list li::before {
+    content: "";
+    position: absolute;
+    left: 0;
+    top: 28px;
+    width: 14px;
+    height: 2px;
+    background: var(--gold);
+}
+.list li:first-child::before { top: 17px; }
+.navy .list li { color: rgba(246, 242, 235, 0.82); border-color: rgba(246, 242, 235, 0.12); }
+.navy .list li::before { background: var(--gold-bright); }
+
+.img-fit { display: block; width: 100%; height: 100%; object-fit: contain; }
+
+/* ===========================================
+   SLIDE 1 — TITLE (dark)
+   =========================================== */
+#s1 .kick { left: 120px; top: 150px; }
+#s1 .kick .sub-kick {
+    margin-top: 16px;
+    font-size: 16px;
+    font-weight: 600;
+    letter-spacing: 0.26em;
+    color: rgba(246, 242, 235, 0.55);
+}
+#s1 h1 {
+    left: 120px;
+    top: 290px;
+    font-size: 176px;
+    line-height: 0.94;
+    letter-spacing: -0.035em;
+}
+#s1 h1 em { font-style: italic; font-weight: 500; color: var(--gold-bright); }
+#s1 .tagline {
+    left: 124px;
+    top: 668px;
+    width: 820px;
+    font-size: 34px;
+    line-height: 1.35;
+    color: rgba(246, 242, 235, 0.78);
+}
+#s1 .meta-rule {
+    left: 120px;
+    top: 820px;
+    width: 1080px;
+    height: 1px;
+    background: rgba(246, 242, 235, 0.18);
+    transform: scaleX(0);
+    transform-origin: left;
+    transition: transform 1.4s var(--ease) 0.7s;
+}
+#s1.active .meta-rule { transform: scaleX(1); }
+#s1 .meta { left: 120px; top: 856px; display: flex; gap: 90px; }
+#s1 .meta .k {
+    font-size: 15px;
+    font-weight: 700;
+    letter-spacing: 0.22em;
+    text-transform: uppercase;
+    color: var(--gold-bright);
+    margin-bottom: 12px;
+}
+#s1 .meta .v { font-size: 25px; color: var(--cream); }
+#s1 .meta .v.names { font-size: 22px; color: rgba(246, 242, 235, 0.85); letter-spacing: 0.01em; }
+
+/* Product hero: phone hovering over a pedestal inside orbit rings */
+.hero { left: 1060px; top: 0; width: 860px; height: 1080px; }
+.hero .rings { position: absolute; left: -70px; top: 30px; width: 1000px; height: 1000px; }
+.hero .rings circle { fill: none; stroke: var(--gold-bright); stroke-width: 1.4; }
+.hero .rings .r1 { opacity: 0.32; stroke-dasharray: 1900; stroke-dashoffset: 1900; transition: stroke-dashoffset 2.4s var(--ease) 0.4s; }
+.hero .rings .r2 { opacity: 0.18; stroke-dasharray: 2600; stroke-dashoffset: 2600; transition: stroke-dashoffset 2.8s var(--ease) 0.6s; }
+.hero .rings .r3 { opacity: 0.09; stroke-dasharray: 3100; stroke-dashoffset: 3100; transition: stroke-dashoffset 3.2s var(--ease) 0.8s; }
+.slide.active .hero .rings circle { stroke-dashoffset: 0; }
+.slide:not(.active) .hero .rings circle { transition-duration: 0s; transition-delay: 0.55s; }
+.hero .spinner { position: absolute; left: -70px; top: 30px; width: 1000px; height: 1000px; animation: spin 80s linear infinite; }
+.hero .spinner span {
+    position: absolute;
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    background: var(--gold-bright);
+    box-shadow: 0 0 18px rgba(216, 180, 104, 0.9);
+}
+.hero .glow {
+    position: absolute;
+    left: 130px;
+    top: 160px;
+    width: 600px;
+    height: 600px;
+    border-radius: 50%;
+    background: radial-gradient(circle, rgba(216, 180, 104, 0.32), transparent 65%);
+    animation: pulse 7s ease-in-out infinite;
+}
+.hero .shadow { position: absolute; left: 90px; top: 640px; width: 680px; opacity: 0.55; }
+.hero .plinth { position: absolute; left: 170px; top: 770px; width: 520px; }
+.hero .float { position: absolute; left: 245px; top: 70px; width: 370px; animation: float 6s ease-in-out infinite alternate; }
+.hero .phone { width: 370px; display: block; filter: drop-shadow(0 50px 60px rgba(0, 0, 0, 0.5)); }
+
+/* ===========================================
+   SLIDE 2 — PLATFORM OVERVIEW
+   =========================================== */
+#s2 .hdr { width: 390px; top: 160px; }
+#s2 h2 { font-size: 86px; line-height: 0.98; }
+#s2 .side-rule {
+    left: 120px;
+    top: 560px;
+    width: 2px;
+    height: 300px;
+    background: linear-gradient(var(--gold), transparent);
+    transform: scaleY(0);
+    transform-origin: top;
+    transition: transform 1.4s var(--ease) 0.5s;
+}
+#s2.active .side-rule { transform: scaleY(1); }
+#s2 .diagram { left: 520px; top: 176px; width: 1320px; height: 726px; }
+
+/* ===========================================
+   SLIDE 3 — VALUE PROPOSITION
+   =========================================== */
+#s3 .cols {
+    left: 120px;
+    right: 120px;
+    top: 318px;
+    height: 640px;
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 34px;
+}
+#s3 .card { position: relative; padding: 46px 44px 30px; }
+#s3 .list li { font-size: 23.5px; padding-top: 18px; padding-bottom: 18px; }
+#s3 .list li::before { top: 32px; }
+#s3 .list li:first-child { padding-top: 4px; }
+#s3 .list li:first-child::before { top: 18px; }
+#s3 .who {
+    font-family: var(--font-display);
+    font-weight: 600;
+    font-size: 40px;
+    letter-spacing: 0.02em;
+    color: var(--navy);
+}
+#s3 .navy .who { color: var(--cream); }
+#s3 .vd {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    margin: 20px 0 18px;
+}
+#s3 .vd::after { content: ""; flex: 1; height: 1px; background: var(--line); }
+#s3 .navy .vd .lbl { color: var(--gold-bright); }
+#s3 .navy .vd::after { background: rgba(246, 242, 235, 0.15); }
+
+/* ===========================================
+   SLIDE 4 — MODEL & KEY ASSETS
+   =========================================== */
+#s4 .l-lbl { left: 120px; top: 300px; }
+#s4 .diagram { left: 104px; top: 336px; width: 790px; height: 527px; }
+#s4 .cap { left: 120px; top: 876px; width: 760px; }
+#s4 .cap .lbl { font-size: 13px; }
+#s4 .cap p { margin: 8px 0 0; font-size: 19px; line-height: 1.45; color: var(--muted); }
+#s4 .assets { left: 960px; top: 300px; width: 840px; }
+#s4 .thead {
+    display: grid;
+    grid-template-columns: 240px 1fr;
+    gap: 30px;
+    margin-top: 26px;
+    padding-bottom: 12px;
+    border-bottom: 1.5px solid var(--line-strong);
+    font-size: 13px;
+    font-weight: 700;
+    letter-spacing: 0.22em;
+    color: var(--light);
+}
+#s4 .row {
+    display: grid;
+    grid-template-columns: 240px 1fr;
+    gap: 30px;
+    padding: 22px 0;
+    border-bottom: 1px solid var(--line);
+    align-items: start;
+}
+#s4 .row .a {
+    font-family: var(--font-display);
+    font-weight: 600;
+    font-size: 27px;
+    line-height: 1.12;
+    color: var(--navy);
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+}
+#s4 .row .a img { width: 34px; height: 34px; margin-top: 1px; flex: none; }
+#s4 .row p { margin: 0; font-size: 19.5px; line-height: 1.5; color: var(--muted); }
+
+/* ===========================================
+   SLIDE 5 — COMPETITIVE DYNAMICS
+   =========================================== */
+#s5 .l-lbl { left: 120px; top: 300px; }
+#s5 .grid {
+    left: 120px;
+    top: 338px;
+    width: 800px;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    grid-auto-rows: 296px;
+    gap: 24px;
+}
+#s5 .card { padding: 34px 34px; }
+#s5 .card .lbl { font-size: 15px; }
+#s5 .card p { margin: 16px 0 0; font-size: 21px; line-height: 1.5; color: var(--muted); }
+#s5 .card.navy .lbl { color: var(--gold-bright); }
+#s5 .card.navy p { color: rgba(246, 242, 235, 0.86); }
+#s5 .card .mark {
+    width: 34px;
+    height: 34px;
+    border-radius: 50%;
+    border: 1.5px solid var(--gold);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-bottom: 18px;
+}
+#s5 .card .mark::after { content: ""; width: 10px; height: 10px; border-radius: 50%; background: var(--gold); }
+#s5 .card.navy .mark { border-color: var(--gold-bright); }
+#s5 .card.navy .mark::after { background: var(--gold-bright); }
+#s5 .r-lbl { left: 1000px; top: 300px; }
+#s5 .matrix { left: 1000px; top: 338px; width: 790px; height: 624px; }
+
+/* ===========================================
+   SLIDE 6 — SCALE-UP STRATEGY
+   =========================================== */
+#s6 .toolkit {
+    left: 120px;
+    top: 262px;
+    width: 1680px;
+    height: 360px;
+    border-radius: 22px;
+    overflow: hidden;
+    border: 1px solid var(--line);
+    background: #fbf6f2;
+}
+#s6 .toolkit img { width: 100%; height: 100%; object-fit: cover; display: block; }
+#s6 .phases {
+    left: 120px;
+    right: 120px;
+    top: 652px;
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 34px;
+}
+#s6 .card { padding: 24px 34px 22px; height: 330px; display: flex; flex-direction: column; }
+#s6 .top { display: flex; justify-content: space-between; align-items: center; }
+#s6 .chip {
+    font-size: 14px;
+    font-weight: 700;
+    letter-spacing: 0.2em;
+    color: var(--cream);
+    background: var(--navy);
+    border-radius: 100px;
+    padding: 7px 16px;
+}
+#s6 .navy .chip { background: var(--gold-bright); color: var(--navy-deep); }
+#s6 .mo { font-size: 18px; font-weight: 600; color: var(--light); letter-spacing: 0.04em; }
+#s6 .navy .mo { color: rgba(246, 242, 235, 0.6); }
+#s6 .nm {
+    font-family: var(--font-display);
+    font-weight: 600;
+    font-size: 31px;
+    letter-spacing: -0.015em;
+    color: var(--navy);
+    margin: 14px 0 10px;
+}
+#s6 .navy .nm { color: var(--cream); }
+#s6 .list li { font-size: 19.5px; padding: 5px 0 5px 26px; border: 0; }
+#s6 .list li::before { top: 18px; width: 12px; }
+#s6 .list li:first-child { padding-top: 5px; }
+#s6 .list li:first-child::before { top: 18px; }
+#s6 .target {
+    margin-top: auto;
+    padding-top: 12px;
+    border-top: 1px solid var(--line);
+    font-family: var(--font-display);
+    font-weight: 600;
+    font-size: 23px;
+    color: var(--gold-ink);
+}
+#s6 .navy .target { color: var(--gold-bright); border-color: rgba(246, 242, 235, 0.15); }
+
+/* ===========================================
+   SLIDE 7 — BUSINESS MODEL
+   =========================================== */
+#s7 .l-lbl { left: 120px; top: 300px; }
+#s7 .ledger { left: 120px; top: 336px; width: 760px; }
+#s7 .ledger .row {
+    display: grid;
+    grid-template-columns: 272px 1fr;
+    gap: 30px;
+    padding: 24px 0;
+    border-top: 1px solid var(--line);
+}
+#s7 .ledger .row:first-child { border-top: 1.5px solid var(--line-strong); }
+#s7 .who { font-size: 14px; font-weight: 700; letter-spacing: 0.22em; color: var(--gold-ink); }
+#s7 .when {
+    font-family: var(--font-display);
+    font-weight: 600;
+    font-size: 23px;
+    line-height: 1.15;
+    color: var(--navy);
+    margin-top: 8px;
+    white-space: nowrap;
+}
+#s7 .ledger p { margin: 0; font-size: 20px; line-height: 1.5; color: var(--muted); }
+#s7 .r-lbl { left: 940px; top: 300px; }
+#s7 .arch { left: 920px; top: 400px; width: 900px; height: 425px; }
+
+/* ===========================================
+   SLIDE 8 — OPERATING MODEL & GOVERNANCE
+   =========================================== */
+#s8 .l-lbl { left: 120px; top: 300px; }
+#s8 .tech { left: 120px; top: 340px; width: 812px; height: 560px; }
+#s8 .r-lbl { left: 990px; top: 300px; }
+#s8 .gov {
+    left: 990px;
+    top: 338px;
+    width: 810px;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    grid-auto-rows: 302px;
+    gap: 20px;
+}
+#s8 .card { padding: 28px 30px; }
+#s8 .card .lbl { font-size: 15px; display: block; margin-bottom: 10px; }
+#s8 .navy .lbl { color: var(--gold-bright); }
+#s8 .list li { font-size: 18.5px; line-height: 1.4; padding: 9px 0 9px 24px; }
+#s8 .list li::before { top: 22px; width: 11px; }
+#s8 .list li:first-child { padding-top: 4px; }
+#s8 .list li:first-child::before { top: 17px; }
+
+/* ===========================================
+   SLIDE 9 — BUSINESS CASE
+   =========================================== */
+#s9 .k-lbl { left: 120px; top: 290px; }
+#s9 .stats {
+    left: 120px;
+    right: 120px;
+    top: 326px;
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 24px;
+}
+#s9 .stat { padding: 24px 34px 26px; height: 144px; }
+#s9 .stat .lbl { font-size: 14px; }
+#s9 .stat .val {
+    font-family: var(--font-display);
+    font-weight: 600;
+    font-size: 52px;
+    line-height: 1;
+    letter-spacing: -0.02em;
+    color: var(--navy);
+    margin-top: 20px;
+    white-space: nowrap;
+    font-variant-numeric: tabular-nums;
+}
+#s9 .stat .val small { font-family: var(--font-body); font-size: 22px; font-weight: 500; color: var(--muted); letter-spacing: 0; margin-left: 10px; }
+#s9 .stat.navy .lbl { color: var(--gold-bright); }
+#s9 .stat.navy .val { color: var(--cream); }
+#s9 .f-lbl { left: 120px; top: 512px; }
+#s9 .chart { left: 120px; top: 546px; width: 650px; height: 433px; }
+#s9 .table { left: 830px; top: 546px; width: 970px; height: 433px; }
+
+/* ===========================================
+   SLIDE 10 — CLOSING (dark)
+   =========================================== */
+#s10 .kick { left: 120px; top: 130px; }
+#s10 h1 {
+    left: 120px;
+    top: 186px;
+    width: 1300px;
+    font-size: 86px;
+    line-height: 1.04;
+    letter-spacing: -0.02em;
+}
+#s10 h1 em { font-style: italic; font-weight: 500; color: var(--gold-bright); }
+#s10 .photo {
+    left: 580px;
+    top: 506px;
+    width: 744px;
+    height: 496px;
+    border-radius: 24px;
+    overflow: hidden;
+    box-shadow: 0 50px 90px -40px rgba(0, 0, 0, 0.7);
+    border: 1px solid rgba(216, 180, 104, 0.3);
+}
+#s10 .photo img { width: 100%; height: 100%; object-fit: cover; display: block; }
+#s10.active .photo img { animation: kenburns 9s var(--ease) both; }
+#s10 .team { left: 120px; top: 900px; width: 400px; }
+#s10 .team .bar { width: 46px; height: 2px; background: var(--gold-bright); margin-bottom: 20px; }
+#s10 .team div:last-child {
+    font-family: var(--font-display);
+    font-style: italic;
+    font-size: 38px;
+    color: var(--cream);
+}
+#s10 .hero { left: 1350px; top: 180px; width: 570px; height: 900px; }
+#s10 .hero .glow { left: 20px; top: 100px; width: 520px; height: 520px; }
+#s10 .hero .shadow { left: 0; top: 500px; width: 560px; }
+#s10 .hero .plinth { left: 70px; top: 610px; width: 420px; }
+#s10 .hero .float { left: 128px; top: 20px; width: 300px; }
+#s10 .hero .phone { width: 300px; }
+
+/* ===========================================
+   DECK CHROME (outside the slide design)
+   =========================================== */
+.progress {
+    position: fixed;
+    left: 0;
+    top: 0;
+    height: 3px;
+    background: linear-gradient(90deg, #b38a3c, #d8b468);
+    z-index: 1001;
+    transition: width 0.6s var(--ease);
+}
+.deck-controls {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    background: rgba(11, 26, 51, 0.82);
+    backdrop-filter: blur(10px);
+    padding: 8px 10px;
+    border-radius: 100px;
+    font-family: var(--font-body);
+    font-size: 15px;
+    font-weight: 600;
+    letter-spacing: 0.08em;
+    color: #f6f2eb;
+    transition: opacity 0.4s ease;
+}
+.deck-controls.idle { opacity: 0; pointer-events: none; }
+.deck-controls button {
+    background: transparent;
+    border: 1px solid rgba(246, 242, 235, 0.3);
+    color: #f6f2eb;
+    border-radius: 100px;
+    width: 40px;
+    height: 40px;
+    cursor: pointer;
+    font-size: 16px;
+    transition: background 0.2s ease, border-color 0.2s ease;
+}
+.deck-controls button:hover { background: rgba(246, 242, 235, 0.1); border-color: #f6f2eb; }
+.deck-controls button:focus-visible { outline: 2px solid #d8b468; outline-offset: 2px; }
+.deck-controls .counter { min-width: 76px; text-align: center; font-variant-numeric: tabular-nums; }
+
+.edit-hint {
+    position: fixed;
+    top: 16px;
+    left: 16px;
+    z-index: 1002;
+    font-family: var(--font-body);
+    font-size: 14px;
+    color: #f6f2eb;
+    background: rgba(11, 26, 51, 0.82);
+    padding: 7px 14px;
+    border-radius: 100px;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.2s;
+}
+.edit-hint.show { opacity: 1; }
+body.editing [contenteditable="true"] { outline: 1.5px dashed rgba(179, 138, 60, 0.7); outline-offset: 4px; cursor: text; }
+</style>
+</head>
+<body>
+
+<div class="progress" id="progress"></div>
+
+<div class="deck-viewport">
+<div class="deck-stage" id="stage">
+
+<!-- ===================== SLIDE 1 — TITLE ===================== -->
+<section class="slide dark active" id="s1">
+    <div class="kick">
+        <div class="sec rv" style="--i:0">MIMS INC.</div>
+        <div class="sub-kick rv" style="--i:1">PLATFORM STRATEGY REPORT</div>
+    </div>
+    <h1 class="hl" style="--i:2">MIMSync<br><em>Platform</em></h1>
+    <div class="tagline rv" style="--i:4">First Iteration of MIMS' New Digital Strategy</div>
+    <div class="meta-rule"></div>
+    <div class="meta">
+        <div class="rv" style="--i:6"><div class="k">Platform type</div><div class="v">Single-Sided &amp; Two Sided</div></div>
+        <div class="rv" style="--i:7"><div class="k">Group IV</div><div class="v names">Oscar M.B. | Nicolai H. | Saloni K. | Maximilian T. | Mia R.</div></div>
+    </div>
+
+    <div class="hero">
+        <svg class="rings" viewBox="0 0 1000 1000" aria-hidden="true">
+            <circle class="r1" cx="500" cy="500" r="300"/>
+            <circle class="r2" cx="500" cy="500" r="405"/>
+            <circle class="r3" cx="500" cy="500" r="490"/>
+        </svg>
+        <div class="spinner" aria-hidden="true">
+            <span style="left:495px; top:95px;"></span>
+            <span style="left:795px; top:695px; width:7px; height:7px;"></span>
+            <span style="left:12px; top:560px; width:6px; height:6px;"></span>
+        </div>
+        <div class="glow"></div>
+        <img class="shadow rv-img" style="--i:3" src="assets/slide1_img2.png" alt="">
+        <img class="plinth rv-img" style="--i:3" src="assets/slide1_img1.png" alt="">
+        <div class="float rv-img" style="--i:5"><img class="phone" src="assets/slide1_img3.png" alt="MIMSync app home screen"></div>
+    </div>
+</section>
+
+<!-- ===================== SLIDE 2 — PLATFORM OVERVIEW ===================== -->
+<section class="slide" id="s2">
+    <div class="orbit o1"></div><div class="orbit o2"></div>
+    <div class="hdr">
+        <div class="sec rv" style="--i:0">PLATFORM OVERVIEW</div>
+        <h2 class="hl" style="--i:1">How MIMSync Works</h2>
+    </div>
+    <div class="side-rule"></div>
+    <div class="brand rv" style="--i:0">MIMS INC.</div>
+    <div class="diagram rv-img" style="--i:3"><img class="img-fit" src="assets/slide2_img1.png" alt="How MIMSync works: data capture, digital twin, coach connect, coach insights, better outcomes"></div>
+</section>
+
+<!-- ===================== SLIDE 3 — VALUE PROPOSITION ===================== -->
+<section class="slide" id="s3">
+    <div class="orbit o1"></div><div class="orbit o2"></div>
+    <div class="hdr">
+        <div class="sec rv" style="--i:0">SECTION 1</div>
+        <h2 class="hl" style="--i:1">Platform Value Proposition</h2>
+    </div>
+    <div class="brand rv" style="--i:0">MIMS INC.</div>
+    <div class="cols">
+        <div class="card rv" style="--i:3">
+            <div class="who">CONSUMERS</div>
+            <div class="vd"><span class="lbl">VALUE DELIVERED</span></div>
+            <ul class="list">
+                <li>Free gamified Digital Twin - no competitor equivalent</li>
+                <li>Personalised health scores, trends, and nudges from all MIMS devices</li>
+                <li>Access to vetted, metabolically-matched coaching programmes</li>
+                <li>Social layer with peer accountability across similar metabolic profiles</li>
+            </ul>
+        </div>
+        <div class="card rv" style="--i:4">
+            <div class="who">PROFESSIONALS</div>
+            <div class="vd"><span class="lbl">VALUE DELIVERED</span></div>
+            <ul class="list">
+                <li>Pre-qualified clients matched by metabolic profile with objective data from day one</li>
+                <li>Course creation, cohort management, and outcome analytics tools</li>
+                <li>Credential-verified marketplace ensures a trusted, quality-assured environment</li>
+                <li>Commission-free onboarding in Phase 1 removes all financial barriers</li>
+            </ul>
+        </div>
+        <div class="card navy rv" style="--i:5">
+            <div class="who">MIMS INC.</div>
+            <div class="vd"><span class="lbl">VALUE DELIVERED</span></div>
+            <ul class="list">
+                <li>10% commission on coach fees, growing with platform scale</li>
+                <li>Reduced hardware churn as Digital Twin lock-in raises switching costs</li>
+                <li>Data network effects: each user improves twin accuracy for all</li>
+                <li>Software moat requiring equivalent hardware investment and regulatory approval to replicate</li>
+            </ul>
+        </div>
+    </div>
+    <div class="baseline"></div>
+    <div class="rpt rv" style="--i:6">MIMSync Platform – Strategy Report</div>
+</section>
+
+<!-- ===================== SLIDE 4 — MODEL & KEY ASSETS ===================== -->
+<section class="slide" id="s4">
+    <div class="orbit o1"></div><div class="orbit o2"></div>
+    <div class="hdr">
+        <div class="sec rv" style="--i:0">SECTION 2</div>
+        <h2 class="hl" style="--i:1">Platform Model &amp; Key Assets</h2>
+    </div>
+    <div class="brand rv" style="--i:0">MIMS INC.</div>
+
+    <div class="l-lbl lbl rv" style="--i:2">TWO-SIDED MARKET ARCHITECTURE</div>
+    <div class="diagram rv-img" style="--i:3"><img class="img-fit" src="assets/slide4_img1.png" alt="Two-sided market diagram: consumers, MIMSync platform, coaches"></div>
+    <div class="cap rv" style="--i:5">
+        <div class="lbl">TWO-SIDED MARKET DIAGRAM</div>
+        <p>Side A: Consumers ↔ MIMSync Platform ↔ Side B: Professionals Cross-side network effects · 10% commission</p>
+    </div>
+
+    <div class="assets">
+        <div class="lbl rv" style="--i:2">KEY STRATEGIC ASSETS</div>
+        <div class="thead rv" style="--i:3"><span>ASSET</span><span>STRATEGIC ROLE</span></div>
+        <div class="row rv" style="--i:4">
+            <div class="a">Proprietary Device Data</div>
+            <p>Multi-source metabolic dataset from CGM, breathalyser, and cardiac sensors. Inaccessible to any third party without equivalent hardware. Core value unit of the Digital Twin.</p>
+        </div>
+        <div class="row rv" style="--i:5">
+            <div class="a">Installed Hardware Base</div>
+            <p>300,000 existing device owners provide a pre-qualified seed audience at near-zero acquisition cost, resolving the consumer-side cold-start problem.</p>
+        </div>
+        <div class="row rv" style="--i:6">
+            <div class="a"><img src="assets/slide4_img3.png" alt="">Medical Brand Trust</div>
+            <p>Clinical monitoring heritage confers health data credibility that consumer tech rivals lack, a critical advantage when users share sensitive biometric data.</p>
+        </div>
+        <div class="row rv" style="--i:7">
+            <div class="a">Conversion Funnel</div>
+            <p>Device purchase, activation prompt, twin population, habit formation, coach discovery, and course enrolment. A natural, intuitive progression.</p>
+        </div>
+    </div>
+</section>
+
+<!-- ===================== SLIDE 5 — COMPETITIVE DYNAMICS ===================== -->
+<section class="slide" id="s5">
+    <div class="orbit o1"></div><div class="orbit o2"></div>
+    <div class="hdr">
+        <div class="sec rv" style="--i:0">SECTION 3</div>
+        <h2 class="hl" style="--i:1">Competitive Dynamics</h2>
+    </div>
+    <div class="brand rv" style="--i:0">MIMS INC.</div>
+
+    <div class="l-lbl lbl rv" style="--i:2">RIGHT-TO-WIN ASSESSMENT</div>
+    <div class="grid">
+        <div class="card navy rv" style="--i:3">
+            <div class="mark"></div>
+            <div class="lbl">PROPRIETARY DATA</div>
+            <p>CGM, breathalyser, and cardiac data combined – inaccessible without equivalent hardware and regulatory approval. This is the biggest win condition.</p>
+        </div>
+        <div class="card rv" style="--i:4">
+            <div class="mark"></div>
+            <div class="lbl">HARDWARE FLYWHEEL</div>
+            <p>Each device sold adds a platform user; each user improves the twin. Self-reinforcing at scale.</p>
+        </div>
+        <div class="card rv" style="--i:5">
+            <div class="mark"></div>
+            <div class="lbl">CLINICAL CREDIBILITY</div>
+            <p>Medical device heritage confers health data trust that consumer tech rivals cannot claim.</p>
+        </div>
+        <div class="card rv" style="--i:6">
+            <div class="mark"></div>
+            <div class="lbl">VETTED MARKETPLACE</div>
+            <p>Data insights enable the professional value proposition. No competitor holds more than one of these advantages.</p>
+        </div>
+    </div>
+
+    <div class="r-lbl lbl rv" style="--i:2">COMPETITIVE POSITIONING MATRIX</div>
+    <div class="matrix rv-img" style="--i:4"><img class="img-fit" src="assets/slide5_img1.png" alt="Competitive positioning matrix: data insight capability vs coach integration, MIMSync in the high/high quadrant"></div>
+
+    <div class="baseline"></div>
+    <div class="rpt rv" style="--i:7">MIMSync Platform – Strategy Report</div>
+</section>
+
+<!-- ===================== SLIDE 6 — SCALE-UP STRATEGY ===================== -->
+<section class="slide" id="s6">
+    <div class="orbit o1"></div><div class="orbit o2"></div>
+    <div class="hdr">
+        <div class="sec rv" style="--i:0">SECTION 4</div>
+        <h2 class="hl" style="--i:1">Scale-Up Strategy</h2>
+    </div>
+
+    <div class="toolkit rv-img" style="--i:2"><img src="assets/slide6_img1_crop.png" alt="Scaling strategy toolkit: single-side, seeding, marquee, piggyback, big bang, micromarket"></div>
+
+    <div class="phases">
+        <div class="card rv" style="--i:4">
+            <div class="top"><span class="chip">PHASE 1</span><span class="mo">Months 0–12</span></div>
+            <div class="nm">Single-Side Strategy</div>
+            <ul class="list">
+                <li>Consumer digital twin only</li>
+                <li>Convert hardware installed base</li>
+                <li>Seed twin with population data</li>
+                <li>Gamification drives retention</li>
+            </ul>
+            <div class="target">Target: 50,000 active users</div>
+        </div>
+        <div class="card rv" style="--i:5">
+            <div class="top"><span class="chip">PHASE 2</span><span class="mo">Months 6–18</span></div>
+            <div class="nm">Marquee Coach Recruitment</div>
+            <ul class="list">
+                <li>15–25 well known professionals</li>
+                <li>ACE / NSCA / BDA partnerships</li>
+                <li>Marketplace soft launch</li>
+                <li>Commission-free onboarding</li>
+            </ul>
+            <div class="target">Target: 300 active coaches</div>
+        </div>
+        <div class="card navy rv" style="--i:6">
+            <div class="top"><span class="chip">PHASE 3</span><span class="mo">Months 18–36</span></div>
+            <div class="nm">Commission &amp; US Entry</div>
+            <ul class="list">
+                <li>10% commission activated</li>
+                <li>General marketplace opens</li>
+                <li>Producer evangelism grows</li>
+                <li>US market big bang entry</li>
+            </ul>
+            <div class="target">Target: 730 active coaches</div>
+        </div>
+    </div>
+</section>
+
+<!-- ===================== SLIDE 7 — BUSINESS MODEL ===================== -->
+<section class="slide" id="s7">
+    <div class="orbit o1"></div><div class="orbit o2"></div>
+    <div class="hdr">
+        <div class="sec rv" style="--i:0">SECTION 5</div>
+        <h2 class="hl" style="--i:1">Business Model</h2>
+    </div>
+    <div class="brand rv" style="--i:0">MIMS INC.</div>
+
+    <div class="l-lbl lbl rv" style="--i:2">PRICING ARCHITECTURE</div>
+    <div class="ledger">
+        <div class="row rv" style="--i:3">
+            <div><div class="who">CONSUMER</div><div class="when">All Phases</div></div>
+            <p>Zero price, fully subsidised. Consumer data powers professional-side value – charging would shrink the network.</p>
+        </div>
+        <div class="row rv" style="--i:4">
+            <div><div class="who">PROFESSIONAL</div><div class="when">Phase 1 · Months 0–18</div></div>
+            <p>Zero commission. Coaches retain 100% of fees. Platform cross-subsidised by hardware margin.</p>
+        </div>
+        <div class="row rv" style="--i:5">
+            <div><div class="who">PROFESSIONAL</div><div class="when">Phase 2 · Month 18+</div></div>
+            <p>10% commission with enhanced analytics and verified badge – paired with demonstrable new value creation.</p>
+        </div>
+        <div class="row rv" style="--i:6">
+            <div><div class="who">FUTURE TIERS</div><div class="when">Phase 3+</div></div>
+            <p>Premium analytics (professional). Predictive modelling (consumer). B2B data licensing to employers, insurers &amp; pharma.</p>
+        </div>
+    </div>
+
+    <div class="r-lbl lbl rv" style="--i:2">INTERACTION ARCHITECTURE</div>
+    <div class="arch rv-img" style="--i:4"><img class="img-fit" src="assets/slide7_img1.png" alt="Interaction architecture: core interaction, coach-user, cohort peer and B2B data layers"></div>
+
+    <div class="baseline"></div>
+    <div class="rpt rv" style="--i:7">MIMSync Platform – Strategy Report</div>
+</section>
+
+<!-- ===================== SLIDE 8 — OPERATING MODEL & GOVERNANCE ===================== -->
+<section class="slide" id="s8">
+    <div class="orbit o1"></div><div class="orbit o2"></div>
+    <div class="hdr">
+        <div class="sec rv" style="--i:0">SECTIONS 6 &amp; 7</div>
+        <h2 class="hl" style="--i:1">Operating Model &amp; Governance</h2>
+    </div>
+    <div class="brand rv" style="--i:0">MIMS INC.</div>
+
+    <div class="l-lbl lbl rv" style="--i:2">TECHNOLOGY ARCHITECTURE</div>
+    <div class="tech rv-img" style="--i:3"><img class="img-fit" src="assets/slide8_img1.png" alt="Technology architecture: device and data lake, applications, digital twin engine, marketplace"></div>
+
+    <div class="r-lbl lbl rv" style="--i:2">GOVERNANCE FRAMEWORK</div>
+    <div class="gov">
+        <div class="card rv" style="--i:4">
+            <span class="lbl">LAWS</span>
+            <ul class="list">
+                <li>GDPR Art. 9, HIPAA, EU MDR / FDA SaMD compliance required</li>
+                <li>CGM and MetaBreath data classified as special-category</li>
+                <li>Formal regulatory opinion required pre-launch</li>
+            </ul>
+        </div>
+        <div class="card rv" style="--i:5">
+            <span class="lbl">NORMS</span>
+            <ul class="list">
+                <li>Professional Code of Conduct - no diagnostic or pharmacological claims</li>
+                <li>Mandatory clinical escalation protocol</li>
+                <li>Annual credential re-verification and content review before courses go live</li>
+            </ul>
+        </div>
+        <div class="card rv" style="--i:6">
+            <span class="lbl">ARCHITECTURE</span>
+            <ul class="list">
+                <li>Cohort-restricted messaging and encrypted data at rest</li>
+                <li>Raw biometric data not visible beyond authorised coach views</li>
+                <li>Automated flagging of prohibited content in course submissions</li>
+            </ul>
+        </div>
+        <div class="card navy rv" style="--i:7">
+            <span class="lbl">MARKET MECHANISMS</span>
+            <ul class="list">
+                <li>Outcome-weighted ratings reward higher-quality coaches</li>
+                <li>Persistent low ratings trigger a structured review process</li>
+                <li>Platform Commitment Charter caps commission and guarantees advance notice of rule changes</li>
+            </ul>
+        </div>
+    </div>
+
+    <div class="baseline"></div>
+    <div class="rpt rv" style="--i:8">MIMSync Platform – Strategy Report</div>
+</section>
+
+<!-- ===================== SLIDE 9 — BUSINESS CASE ===================== -->
+<section class="slide" id="s9">
+    <div class="orbit o1"></div><div class="orbit o2"></div>
+    <div class="hdr">
+        <div class="sec rv" style="--i:0">SECTION 8</div>
+        <h2 class="hl" style="--i:1">Business Case</h2>
+    </div>
+    <div class="brand rv" style="--i:0">MIMS INC.</div>
+
+    <div class="k-lbl lbl rv" style="--i:2">KEY ASSUMPTIONS &amp; MILESTONES</div>
+    <div class="stats">
+        <div class="card stat rv" style="--i:3">
+            <div class="lbl">TARGET MONTHLY GTV (YEAR 2)</div>
+            <div class="val" data-count="1.65" data-dec="2" data-pre="EUR " data-suf="M">EUR 1.65M</div>
+        </div>
+        <div class="card stat rv" style="--i:4">
+            <div class="lbl">OPERATIONAL BREAKEVEN</div>
+            <div class="val">20-24 Months<small>(EUR 60k)</small></div>
+        </div>
+        <div class="card stat navy rv" style="--i:5">
+            <div class="lbl">BREAKEVEN</div>
+            <div class="val" data-count="40" data-dec="0" data-pre="~" data-suf=" Months">~40 Months</div>
+        </div>
+    </div>
+
+    <div class="f-lbl lbl rv" style="--i:6">FINANCIAL PROJECTIONS</div>
+    <div class="chart rv-img" style="--i:6"><img class="img-fit" src="assets/slide9_img1.png" alt="Revenue and GTV over 36 months, operational breakeven around month 21"></div>
+    <div class="table rv-img" style="--i:7"><img class="img-fit" src="assets/slide9_img2.png" alt="Key financial assumptions table"></div>
+
+    <div class="baseline"></div>
+    <div class="rpt rv" style="--i:8">MIMSync Platform – Strategy Report</div>
+</section>
+
+<!-- ===================== SLIDE 10 — CLOSING ===================== -->
+<section class="slide dark" id="s10">
+    <div class="kick"><div class="sec rv" style="--i:0">MIMS INC.</div></div>
+    <h1 class="hl" style="--i:1">ELEVATING MIMS INC FROM PIPELINE TO <em>PLATFORM</em></h1>
+    <div class="photo rv-img" style="--i:3"><img src="assets/slide10_img4.jpg" alt="The MIMSync team"></div>
+    <div class="team rv" style="--i:5"><div class="bar"></div><div>MIMSync Dev Team</div></div>
+
+    <div class="hero">
+        <div class="glow"></div>
+        <img class="shadow rv-img" style="--i:4" src="assets/slide10_img2.png" alt="">
+        <img class="plinth rv-img" style="--i:4" src="assets/slide10_img1.png" alt="">
+        <div class="float rv-img" style="--i:6"><img class="phone" src="assets/slide10_img3.png" alt="MIMSync app home screen"></div>
+    </div>
+</section>
+
+</div>
+</div>
+
+<div class="deck-controls" id="controls">
+    <button id="prev" aria-label="Previous slide">&#8592;</button>
+    <span class="counter" id="counter">01 / 10</span>
+    <button id="next" aria-label="Next slide">&#8594;</button>
+</div>
+<div class="edit-hint" id="edit-hint">Edit mode · click any text · Ctrl+S saves a copy · Esc to exit</div>
+
+<script>
+/* === STAGE SCALING: fixed 1920×1080, scaled uniformly, letterboxed === */
+(function () {
+    const stage = document.getElementById('stage');
+    function fit() {
+        const s = Math.min(window.innerWidth / 1920, window.innerHeight / 1080);
+        const x = (window.innerWidth - 1920 * s) / 2;
+        const y = (window.innerHeight - 1080 * s) / 2;
+        stage.style.transform = `translate(${x}px, ${y}px) scale(${s})`;
+    }
+    window.addEventListener('resize', fit);
+    fit();
+})();
+
+/* === COUNT-UP for metric values; always ends on the exact source text === */
+function runCounters(slide) {
+    const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    slide.querySelectorAll('[data-count]').forEach(el => {
+        const finalText = el.dataset.final || (el.dataset.final = el.textContent);
+        if (reduce) { el.textContent = finalText; return; }
+        const target = parseFloat(el.dataset.count);
+        const dec = parseInt(el.dataset.dec, 10);
+        const pre = el.dataset.pre || '', suf = el.dataset.suf || '';
+        const dur = 1600, delay = 450;
+        const t0 = performance.now() + delay;
+        el.textContent = pre + (0).toFixed(dec) + suf;
+        function tick(now) {
+            const p = Math.min(Math.max((now - t0) / dur, 0), 1);
+            const eased = 1 - Math.pow(1 - p, 4);
+            el.textContent = pre + (target * eased).toFixed(dec) + suf;
+            if (p < 1) requestAnimationFrame(tick); else el.textContent = finalText;
+        }
+        requestAnimationFrame(tick);
+    });
+}
+
+/* === SLIDE NAVIGATION: arrows, space, PageUp/PageDown, swipe, deep links === */
+(function () {
+    const slides = Array.from(document.querySelectorAll('.slide'));
+    const counter = document.getElementById('counter');
+    const progress = document.getElementById('progress');
+    let index = 0;
+
+    function pad(n) { return String(n).padStart(2, '0'); }
+
+    function show(i) {
+        if (i < 0 || i >= slides.length || i === index) return;
+        slides[index].classList.remove('active');
+        index = i;
+        slides[index].classList.add('active');
+        update();
+    }
+
+    function update() {
+        counter.textContent = pad(index + 1) + ' / ' + pad(slides.length);
+        progress.style.width = ((index + 1) / slides.length * 100) + '%';
+        history.replaceState(null, '', '#' + (index + 1));
+        runCounters(slides[index]);
+    }
+
+    document.getElementById('prev').addEventListener('click', () => show(index - 1));
+    document.getElementById('next').addEventListener('click', () => show(index + 1));
+
+    document.addEventListener('keydown', (e) => {
+        if (document.body.classList.contains('editing')) return;
+        if (['ArrowRight', 'ArrowDown', 'PageDown', ' ', 'Enter'].includes(e.key)) { e.preventDefault(); show(index + 1); }
+        if (['ArrowLeft', 'ArrowUp', 'PageUp', 'Backspace'].includes(e.key)) { e.preventDefault(); show(index - 1); }
+        if (e.key === 'Home') show(0);
+        if (e.key === 'End') show(slides.length - 1);
+    });
+
+    let startX = null;
+    document.addEventListener('touchstart', (e) => { startX = e.touches[0].clientX; }, { passive: true });
+    document.addEventListener('touchend', (e) => {
+        if (startX === null) return;
+        const dx = e.changedTouches[0].clientX - startX;
+        if (Math.abs(dx) > 50) show(dx < 0 ? index + 1 : index - 1);
+        startX = null;
+    });
+
+    const start = parseInt(location.hash.slice(1), 10);
+    if (start >= 1 && start <= slides.length && start !== 1) {
+        slides[0].classList.remove('active');
+        index = start - 1;
+        slides[index].classList.add('active');
+    }
+    update();
+
+    /* Controls fade away when the mouse is idle */
+    const controls = document.getElementById('controls');
+    let idleTimer;
+    function wake() {
+        controls.classList.remove('idle');
+        clearTimeout(idleTimer);
+        idleTimer = setTimeout(() => controls.classList.add('idle'), 2400);
+    }
+    document.addEventListener('mousemove', wake);
+    document.addEventListener('keydown', wake);
+    wake();
+})();
+
+/* === INLINE EDITING: E toggles, Ctrl/Cmd+S downloads an edited copy === */
+(function () {
+    const hint = document.getElementById('edit-hint');
+    const selector = '.slide h1, .slide h2, .slide p, .slide li, .slide .sec, .slide .lbl, .slide .who, .slide .when, .slide .nm, .slide .mo, .slide .chip, .slide .target, .slide .val, .slide .k, .slide .v, .slide .a, .slide .brand, .slide .rpt, .slide .tagline, .slide .sub-kick, .slide .team div:last-child, .slide .thead span';
+    let editing = false;
+
+    function setEditing(on) {
+        editing = on;
+        document.body.classList.toggle('editing', on);
+        document.querySelectorAll(selector).forEach(el => el.setAttribute('contenteditable', on ? 'true' : 'false'));
+        hint.classList.toggle('show', on);
+    }
+
+    document.addEventListener('keydown', (e) => {
+        if ((e.key === 'e' || e.key === 'E') && !e.ctrlKey && !e.metaKey && !editing) {
+            setEditing(true);
+        } else if (e.key === 'Escape' && editing) {
+            setEditing(false);
+        } else if ((e.ctrlKey || e.metaKey) && (e.key === 's' || e.key === 'S') && editing) {
+            e.preventDefault();
+            const clone = document.documentElement.cloneNode(true);
+            clone.querySelectorAll('[contenteditable]').forEach(el => el.removeAttribute('contenteditable'));
+            clone.querySelector('body').classList.remove('editing');
+            clone.querySelectorAll('[data-final]').forEach(el => { el.textContent = el.dataset.final; el.removeAttribute('data-final'); });
+            const blob = new Blob(['<!DOCTYPE html>\n' + clone.outerHTML], { type: 'text/html' });
+            const a = document.createElement('a');
+            a.href = URL.createObjectURL(blob);
+            a.download = 'MIMSync-Platform-Strategy-edited.html';
+            a.click();
+            setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+        }
+    });
+})();
+</script>
+</body>
+</html>

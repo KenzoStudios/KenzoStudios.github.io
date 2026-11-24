@@ -148,5 +148,30 @@ const PROJECTS = [
       { label: "Open the deck", note: "About 20 MB, so it can take a few seconds to load.", href: "presentations/never-less-koenigsegg/", primary: true }
     ],
     controls: [[["→","Space"],"Next slide"],[["←"],"Previous slide"],[["F"],"Fullscreen"],[["N"],"Speaker notes"],[["P"],"Presenter window"],[["?"],"All controls"]]
+  },
+  {
+    id: "mimsync-platform", section: "presentations",
+    title: "MIMSync Platform", subtitle: "Strategy report: from pipeline to platform",
+    summary: "A platform strategy that turns a health-sensor company's hardware into a two-sided marketplace of consumers and coaches.",
+    body: "MIMS Inc. already sells metabolic sensors. This deck proposes MIMSync, a platform where each customer's data builds a Digital Twin that matches them with vetted coaches. It covers the value to consumers, coaches and the company, the competitive dynamics, a three-phase scale-up from consumers first to a US launch, the business model and governance, and a business case with a 20 to 24 month operational breakeven.",
+    tags: ["Deck", "Platform strategy", "HTML"],
+    cover: "presentations/mimsync-platform/shots/how-it-works.webp",
+    shots: [
+      { src: "presentations/mimsync-platform/shots/how-it-works.webp",          alt: "How MIMSync works: data capture from devices into a Digital Twin, coach marketplace and insights", cap: "How MIMSync works: device data builds a Digital Twin that connects to coaches." },
+      { src: "presentations/mimsync-platform/shots/value-proposition.webp",     alt: "Platform value proposition for consumers, professionals and the company", cap: "What each side of the platform gets." },
+      { src: "presentations/mimsync-platform/shots/competitive-dynamics.webp",  alt: "Competitive dynamics with a positioning matrix of data insight against coach integration", cap: "Competitive dynamics: where MIMSync sits against other health platforms." },
+      { src: "presentations/mimsync-platform/shots/scale-up.webp",              alt: "Scale-up strategy toolkit and the three phases", cap: "Three phases: consumers first, then marquee coaches, then commission and a US entry." },
+      { src: "presentations/mimsync-platform/shots/business-case.webp",         alt: "Business case with breakeven milestones, a revenue and GTV chart and key assumptions", cap: "The business case: assumptions, breakeven and projections." }
+    ],
+    facts: [
+      ["Question", "How a sensor maker becomes a two-sided platform"],
+      ["Plan", "Consumers first, marquee coaches second, commission and a US entry third"],
+      ["Numbers", "300,000 hardware users, operational breakeven in 20 to 24 months"],
+      ["Format", "10 slides in one page that runs in the browser"]
+    ],
+    actions: [
+      { label: "Open the deck", note: "About 14 MB, so it can take a few seconds to load.", href: "presentations/mimsync-platform/", primary: true }
+    ],
+    controls: [[["→"],"Next slide"],[["←"],"Previous slide"]]
   }
 ];
