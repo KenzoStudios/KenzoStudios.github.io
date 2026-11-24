@@ -1,0 +1,324 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Your Name · Portfolio</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<meta name="description" content="Games, desktop apps, websites and AI agents by Your Name.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,400..900&family=Instrument+Sans:wght@400;500;600&family=JetBrains+Mono:wght@400;600&display=swap">
+<style>
+/* Layout: a project cabinet. Left-aligned masthead, a sticky row of section tabs with live counts,
+   then one ruled shelf per section; the flagship project in each shelf gets a wide card. */
+:root{
+  --paper:#EDEFF2; --card:#FFFFFF; --ink:#151821; --muted:#5A6172; --rule:#D3D7DF; --accent:#2D46E0;
+  --c-games:#C9481A; --c-apps:#2D46E0; --c-web:#1B7F53; --c-agents:#7139C4;
+  --key:#F5F6F8; --key-edge:#C3C8D2;
+  --f-display:"Archivo","Arial Narrow",system-ui,sans-serif;
+  --f-body:"Instrument Sans",system-ui,-apple-system,"Segoe UI",sans-serif;
+  --f-mono:"JetBrains Mono",ui-monospace,"SFMono-Regular",Menlo,Consolas,monospace;
+  --wrap:1120px;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --paper:#0E1117; --card:#161A22; --ink:#E7EAF0; --muted:#969DAC; --rule:#282E3A; --accent:#8C9BFF;
+    --c-games:#F2804E; --c-apps:#8C9BFF; --c-web:#4CC48F; --c-agents:#B590F7;
+    --key:#1F2430; --key-edge:#3A4150; color-scheme:dark;
+  }
+}
+:root[data-theme="dark"]{
+  --paper:#0E1117; --card:#161A22; --ink:#E7EAF0; --muted:#969DAC; --rule:#282E3A; --accent:#8C9BFF;
+  --c-games:#F2804E; --c-apps:#8C9BFF; --c-web:#4CC48F; --c-agents:#B590F7;
+  --key:#1F2430; --key-edge:#3A4150; color-scheme:dark;
+}
+
+*{box-sizing:border-box}
+html{scroll-behavior:smooth;scroll-padding-top:72px}
+@media (prefers-reduced-motion: reduce){html{scroll-behavior:auto}}
+body{margin:0;background:var(--paper);color:var(--ink);font:400 16px/1.6 var(--f-body);-webkit-font-smoothing:antialiased}
+img{max-width:100%;display:block}
+a{color:inherit}
+:focus-visible{outline:2px solid var(--accent);outline-offset:3px;border-radius:4px}
+
+.wrap{max-width:var(--wrap);margin:0 auto;padding-left:max(16px, env(safe-area-inset-left, 0px));padding-right:max(16px, env(safe-area-inset-right, 0px))}
+
+/* Masthead */
+.mast{padding-block:clamp(48px,9vw,104px) 36px}
+.mast__eyebrow{font:600 12px/1 var(--f-mono);letter-spacing:.14em;text-transform:uppercase;color:var(--muted);margin:0 0 20px}
+.mast h1{font-family:var(--f-display);font-weight:850;font-stretch:125%;font-variation-settings:"wdth" 125;
+  font-size:clamp(44px,8.4vw,104px);line-height:.92;letter-spacing:-.02em;margin:0;text-wrap:balance}
+.mast__lede{font-size:clamp(18px,2.1vw,22px);line-height:1.45;color:var(--muted);max-width:36ch;margin:22px 0 0;text-wrap:pretty}
+.mast__lede strong{color:var(--ink);font-weight:600}
+.links{display:flex;flex-wrap:wrap;gap:10px;margin-top:28px;padding:0;list-style:none}
+.links a{display:inline-flex;align-items:center;gap:8px;text-decoration:none;font:600 14px/1 var(--f-body);
+  padding:11px 16px;border:1px solid var(--rule);border-radius:999px;background:var(--card);transition:border-color .15s}
+.links a:hover{border-color:var(--ink)}
+.links svg{width:16px;height:16px;fill:currentColor}
+
+/* Sticky section tabs */
+body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset-top, 0px);z-index:10;background:var(--paper)}
+.tabs{position:sticky;top:env(safe-area-inset-top, 0px);z-index:5;background:color-mix(in srgb,var(--paper) 88%,transparent);
+  backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);border-block:1px solid var(--rule)}
+.tabs ul{display:flex;gap:4px;margin:0;padding-block:8px;list-style:none;overflow-x:auto;scrollbar-width:none}
+.tabs ul::-webkit-scrollbar{display:none}
+.tabs a{display:flex;align-items:center;gap:8px;white-space:nowrap;text-decoration:none;font:600 14px/1 var(--f-body);
+  padding:10px 14px;border-radius:8px;color:var(--muted);transition:background .15s,color .15s}
+.tabs a:hover{color:var(--ink);background:var(--card)}
+.tabs a[aria-current="true"]{color:var(--ink);background:var(--card)}
+.dot{width:8px;height:8px;border-radius:2px;background:var(--cat);flex:none}
+.count{font:600 11px/1 var(--f-mono);color:var(--muted);padding:3px 6px;border:1px solid var(--rule);border-radius:4px;font-variant-numeric:tabular-nums}
+
+/* Sections */
+.shelf{padding-block:56px 8px}
+.shelf__head{display:flex;flex-wrap:wrap;align-items:baseline;justify-content:space-between;gap:8px 24px;
+  padding-bottom:16px;margin-bottom:28px;border-bottom:2px solid var(--ink)}
+.shelf__head h2{display:flex;align-items:center;gap:12px;margin:0;font-family:var(--f-display);font-weight:800;
+  font-variation-settings:"wdth" 112;font-size:clamp(28px,4vw,40px);line-height:1;letter-spacing:-.01em}
+.shelf__head h2 .dot{width:14px;height:14px;border-radius:3px}
+.shelf__head p{margin:0;color:var(--muted);max-width:52ch}
+[data-cat="games"]{--cat:var(--c-games)} [data-cat="apps"]{--cat:var(--c-apps)}
+[data-cat="web"]{--cat:var(--c-web)} [data-cat="agents"]{--cat:var(--c-agents)}
+
+/* Feature card */
+.feature{display:grid;grid-template-columns:minmax(0,1.35fr) minmax(0,1fr);gap:0;background:var(--card);
+  border:1px solid var(--rule);border-radius:14px;overflow:hidden}
+.media{background:#120d18;display:flex;flex-direction:column;min-width:0}
+.media__main{aspect-ratio:16/9;width:100%;height:auto;max-width:100%;object-fit:cover;image-rendering:pixelated}
+.thumbs{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:6px;padding:6px;background:#120d18}
+.thumbs button{all:unset;cursor:pointer;border-radius:4px;overflow:hidden;outline:2px solid transparent;outline-offset:-2px;opacity:.6;transition:opacity .15s}
+.thumbs button:hover{opacity:.9}
+.thumbs button[aria-pressed="true"]{opacity:1;outline-color:#F2B45A}
+.thumbs button:focus-visible{outline-color:#F2B45A;opacity:1}
+.thumbs img{aspect-ratio:16/9;width:100%;height:auto;object-fit:cover;image-rendering:pixelated}
+.caption{margin:0;padding:2px 10px 10px;font:400 12px/1.4 var(--f-mono);color:#B9A9C9;min-height:2.8em}
+
+.info{padding:clamp(22px,3vw,34px);display:flex;flex-direction:column;gap:18px;min-width:0}
+.kicker{display:flex;flex-wrap:wrap;gap:6px}
+.tag{font:600 11px/1 var(--f-mono);letter-spacing:.06em;text-transform:uppercase;padding:6px 8px;border-radius:4px;
+  border:1px solid var(--rule);color:var(--muted)}
+.tag--cat{border-color:transparent;background:color-mix(in srgb,var(--cat) 14%,transparent);color:var(--cat)}
+.info h3{margin:0;font-family:var(--f-display);font-weight:850;font-variation-settings:"wdth" 118;
+  font-size:clamp(28px,3.4vw,38px);line-height:1;letter-spacing:-.01em;text-wrap:balance}
+.info h3 small{display:block;margin-top:6px;font-size:.5em;font-weight:600;font-variation-settings:"wdth" 100;color:var(--cat);letter-spacing:.02em}
+.info p{margin:0;max-width:60ch}
+
+.facts{display:grid;grid-template-columns:auto 1fr;gap:8px 16px;margin:0;font-size:14px}
+.facts dt{font:600 11px/1.9 var(--f-mono);letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
+.facts dd{margin:0;min-width:0}
+
+.play{display:grid;gap:10px;margin-top:auto}
+.btn{display:flex;align-items:center;justify-content:space-between;gap:12px;text-decoration:none;border-radius:10px;
+  padding:14px 16px;border:1px solid var(--rule);transition:transform .12s,border-color .15s,background .15s}
+.btn:hover{border-color:var(--ink)}
+.btn:active{transform:translateY(1px)}
+.btn b{display:block;font:700 15px/1.2 var(--f-body)}
+.btn span{display:block;font-size:13px;line-height:1.4;color:var(--muted);margin-top:3px}
+.btn svg{width:18px;height:18px;flex:none;fill:none;stroke:currentColor;stroke-width:2}
+.btn--primary{background:var(--ink);border-color:var(--ink);color:var(--paper)}
+.btn--primary span{color:color-mix(in srgb,var(--paper) 72%,transparent)}
+.btn--primary:hover{background:color-mix(in srgb,var(--ink) 88%,var(--cat))}
+
+/* Controls strip */
+.controls{grid-column:1/-1;border-top:1px solid var(--rule);padding:16px clamp(22px,3vw,34px);
+  display:flex;flex-wrap:wrap;align-items:center;gap:10px 22px}
+.controls h4{margin:0;font:600 11px/1 var(--f-mono);letter-spacing:.1em;text-transform:uppercase;color:var(--muted)}
+.controls ul{display:flex;flex-wrap:wrap;gap:8px 18px;margin:0;padding:0;list-style:none;font-size:13px}
+.controls li{display:flex;align-items:center;gap:7px}
+kbd{font:600 11px/1 var(--f-mono);min-width:24px;text-align:center;padding:5px 6px 4px;border-radius:5px;background:var(--key);
+  border:1px solid var(--key-edge);border-bottom-width:2px;color:var(--ink)}
+
+/* Empty shelves */
+.empty{border:1.5px dashed var(--rule);border-radius:14px;padding:28px clamp(20px,3vw,32px);display:flex;flex-wrap:wrap;
+  align-items:center;justify-content:space-between;gap:12px 24px;color:var(--muted)}
+.empty p{margin:0;max-width:60ch}
+.empty .tag{border-style:dashed}
+
+footer{margin-top:72px;border-top:1px solid var(--rule)}
+footer .wrap{padding-block:28px 40px;display:flex;flex-wrap:wrap;justify-content:space-between;gap:12px;color:var(--muted);font-size:14px}
+
+@media (max-width:880px){
+  .feature{grid-template-columns:minmax(0,1fr)}
+}
+@media (max-width:480px){
+  .thumbs{grid-template-columns:repeat(5,minmax(0,1fr));gap:4px;padding:4px}
+  .facts{grid-template-columns:minmax(0,1fr);gap:2px}
+  .facts dd{margin-bottom:8px}
+}
+</style>
+</head>
+<body>
+
+<header class="mast">
+  <div class="wrap">
+    <p class="mast__eyebrow">Portfolio · 2026</p>
+    <h1>Your Name</h1>
+    <p class="mast__lede">I build <strong>games</strong>, <strong>desktop apps</strong>, <strong>websites</strong> and <strong>AI agents</strong>. Everything here runs in your browser or has a demo you can watch.</p>
+    <ul class="links">
+      <li><a href="https://github.com/KenzoStudios" target="_blank" rel="noopener"><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M8 0a8 8 0 0 0-2.53 15.59c.4.07.55-.17.55-.38v-1.33c-2.23.48-2.7-1.07-2.7-1.07-.36-.92-.89-1.17-.89-1.17-.73-.5.05-.49.05-.49.8.06 1.23.83 1.23.83.72 1.22 1.87.87 2.33.66.07-.52.28-.87.5-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82a7.6 7.6 0 0 1 4 0c1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48v2.2c0 .21.15.46.55.38A8 8 0 0 0 8 0Z"/></svg>GitHub</a></li>
+      <li><a href="https://www.linkedin.com/" target="_blank" rel="noopener"><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M0 1.15C0 .52.52 0 1.18 0h13.64C15.48 0 16 .52 16 1.15v13.7c0 .63-.52 1.15-1.18 1.15H1.18C.52 16 0 15.48 0 14.85V1.15Zm4.94 12.24V6.17H2.54v7.22h2.4ZM3.74 5.18c.84 0 1.36-.55 1.36-1.25-.02-.71-.52-1.25-1.34-1.25-.82 0-1.36.54-1.36 1.25 0 .7.52 1.25 1.33 1.25h.01Zm4.9 8.21V9.36c0-.22.02-.43.08-.59.18-.43.57-.88 1.23-.88.87 0 1.22.66 1.22 1.63v3.87h2.4V9.25c0-2.22-1.18-3.25-2.76-3.25-1.29 0-1.86.71-2.18 1.21V6.17h-2.4c.03.68 0 7.22 0 7.22h2.4Z"/></svg>LinkedIn</a></li>
+      <li><a href="mailto:you@example.com"><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M1.5 3h13A1.5 1.5 0 0 1 16 4.5v7a1.5 1.5 0 0 1-1.5 1.5h-13A1.5 1.5 0 0 1 0 11.5v-7A1.5 1.5 0 0 1 1.5 3Zm.2 1.5L8 8.7l6.3-4.2H1.7Zm12.8 1.27L8.42 9.83a.75.75 0 0 1-.84 0L1.5 5.77v5.73h13V5.77Z"/></svg>you@example.com</a></li>
+    </ul>
+  </div>
+</header>
+
+<nav class="tabs" aria-label="Sections">
+  <div class="wrap">
+    <ul>
+      <li><a href="#games" data-cat="games"><span class="dot"></span>Games<span class="count">1</span></a></li>
+      <li><a href="#apps" data-cat="apps"><span class="dot"></span>Apps<span class="count">0</span></a></li>
+      <li><a href="#websites" data-cat="web"><span class="dot"></span>Websites<span class="count">0</span></a></li>
+      <li><a href="#agents" data-cat="agents"><span class="dot"></span>Agents<span class="count">0</span></a></li>
+    </ul>
+  </div>
+</nav>
+
+<main>
+  <!-- GAMES -->
+  <section class="shelf" id="games" data-cat="games">
+    <div class="wrap">
+      <div class="shelf__head">
+        <h2><span class="dot"></span>Games</h2>
+        <p>Playable in the browser. No download or install needed.</p>
+      </div>
+
+      <article class="feature" id="iron-frontier">
+        <div class="media">
+          <img class="media__main" id="if-main" src="games/iron-frontier/shots/title.webp" width="960" height="540"
+               alt="Iron Frontier title screen: a soldier by a campfire on a desert ridge at sunset">
+          <div class="thumbs" role="group" aria-label="Iron Frontier screenshots">
+            <button type="button" aria-pressed="true" data-src="games/iron-frontier/shots/title.webp"
+              data-alt="Iron Frontier title screen: a soldier by a campfire on a desert ridge at sunset"
+              data-cap="Title screen. Every sprite, tile and font glyph is drawn in code."><img src="games/iron-frontier/shots/title.webp" alt="" width="192" height="108"></button>
+            <button type="button" aria-pressed="false" data-src="games/iron-frontier/shots/range.webp"
+              data-alt="Training range with targets and signposts explaining aim, reload and parry"
+              data-cap="The opening climb teaches each move on signposts: aim, reload, parry."><img src="games/iron-frontier/shots/range.webp" alt="" width="192" height="108"></button>
+            <button type="button" aria-pressed="false" data-src="games/iron-frontier/shots/outpost.webp"
+              data-alt="The outpost hub: a lit bunker with a terminal and a field desk"
+              data-cap="The outpost is the hub between runs: terminal, field desk and trophy wall."><img src="games/iron-frontier/shots/outpost.webp" alt="" width="192" height="108"></button>
+            <button type="button" aria-pressed="false" data-src="games/iron-frontier/shots/armoury.webp"
+              data-alt="The armoury: weapon racks and a map table outside the outpost"
+              data-cap="The armoury holds every gun you have found and what each one does."><img src="games/iron-frontier/shots/armoury.webp" alt="" width="192" height="108"></button>
+            <button type="button" aria-pressed="false" data-src="games/iron-frontier/shots/firing.webp"
+              data-alt="The soldier firing on the test range beside the armoury"
+              data-cap="Test any gun you own on the range before heading down."><img src="games/iron-frontier/shots/firing.webp" alt="" width="192" height="108"></button>
+          </div>
+          <p class="caption" id="if-cap" aria-live="polite">Title screen. Every sprite, tile and font glyph is drawn in code.</p>
+        </div>
+
+        <div class="info">
+          <div class="kicker">
+            <span class="tag tag--cat">Game</span>
+            <span class="tag">JavaScript</span>
+            <span class="tag">WebGL</span>
+            <span class="tag">Vite</span>
+          </div>
+          <h3>Iron Frontier<small>Legion Rising</small></h3>
+          <p>A pixel-art roguelite run-and-gun. Fight down through sector after sector of the Legion's territory, pick up and fuse new guns as you go, and take on a boss at the bottom of each zone. Die and you start a fresh run, keeping the intel you collected to unlock more for next time.</p>
+          <dl class="facts">
+            <dt>Zones</dt><dd>Ashen Zone, Black Jungle, The Drowned Works, Rust Spires, Iron Citadel</dd>
+            <dt>Modes</dt><dd>Full runs, a Daily Operation with a shared seed, and The Spiral (endless)</dd>
+            <dt>Extras</dt><dd>Weapon fusions and evolutions, a codex of enemies and lore, a trophy wall, rebindable keys, colour-blind palettes</dd>
+            <dt>Plays on</dt><dd>Keyboard and mouse, gamepad or touch screen</dd>
+          </dl>
+          <div class="play">
+            <a class="btn btn--primary" href="games/iron-frontier/play.html" target="_blank" rel="noopener">
+              <div><b>Play from the start</b><span>A fresh save, beginning with the tutorial climb.</span></div>
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 17 17 7M9 7h8v8"/></svg>
+            </a>
+            <a class="btn" href="games/iron-frontier/play-unlocked.html" target="_blank" rel="noopener">
+              <div><b>Play with everything unlocked</b><span>Skips the tutorial and opens every upgrade, achievement and codex entry, so you can see the late game straight away.</span></div>
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 17 17 7M9 7h8v8"/></svg>
+            </a>
+          </div>
+        </div>
+
+        <div class="controls">
+          <h4>Controls</h4>
+          <ul>
+            <li><kbd>A</kbd><kbd>D</kbd> Move</li>
+            <li><kbd>Space</kbd> Jump</li>
+            <li><kbd>Mouse</kbd> Aim and fire</li>
+            <li><kbd>Shift</kbd> Dash</li>
+            <li><kbd>R</kbd> Reload</li>
+            <li><kbd>F</kbd> Parry</li>
+            <li><kbd>G</kbd> Throw</li>
+            <li><kbd>E</kbd> Interact</li>
+          </ul>
+        </div>
+      </article>
+    </div>
+  </section>
+
+  <!-- APPS -->
+  <section class="shelf" id="apps" data-cat="apps">
+    <div class="wrap">
+      <div class="shelf__head">
+        <h2><span class="dot"></span>Apps</h2>
+        <p>Desktop applications built with Electron, with demo videos and downloads.</p>
+      </div>
+      <div class="empty"><p>Desktop apps are on their way. Each will have a short demo video and a Windows or Mac download.</p><span class="tag">Coming soon</span></div>
+    </div>
+  </section>
+
+  <!-- WEBSITES -->
+  <section class="shelf" id="websites" data-cat="web">
+    <div class="wrap">
+      <div class="shelf__head">
+        <h2><span class="dot"></span>Websites</h2>
+        <p>Sample sites in HTML, CSS and JavaScript. Each one opens as a working page.</p>
+      </div>
+      <div class="empty"><p>Sample websites are on their way. Each will open as a live page you can click through.</p><span class="tag">Coming soon</span></div>
+    </div>
+  </section>
+
+  <!-- AGENTS -->
+  <section class="shelf" id="agents" data-cat="agents">
+    <div class="wrap">
+      <div class="shelf__head">
+        <h2><span class="dot"></span>Agents</h2>
+        <p>AI agents built with Claude Code, with recordings of them at work and the source on GitHub.</p>
+      </div>
+      <div class="empty"><p>Agents are on their way. Each will have a recording of a real task and a link to the code.</p><span class="tag">Coming soon</span></div>
+    </div>
+  </section>
+</main>
+
+<footer>
+  <div class="wrap">
+    <span>© 2026 Your Name</span>
+    <span>Hosted on GitHub Pages</span>
+  </div>
+</footer>
+
+<script>
+// Screenshot gallery
+document.querySelectorAll('.feature').forEach(function (card) {
+  var main = card.querySelector('.media__main');
+  var cap = card.querySelector('.caption');
+  var btns = card.querySelectorAll('.thumbs button');
+  btns.forEach(function (b) {
+    b.addEventListener('click', function () {
+      btns.forEach(function (x) { x.setAttribute('aria-pressed', x === b ? 'true' : 'false'); });
+      main.src = b.dataset.src; main.alt = b.dataset.alt; cap.textContent = b.dataset.cap;
+    });
+  });
+});
+
+// Highlight the tab for the section in view
+(function () {
+  var tabs = Array.prototype.slice.call(document.querySelectorAll('.tabs a'));
+  var map = {};
+  tabs.forEach(function (t) { map[t.getAttribute('href').slice(1)] = t; });
+  if (!('IntersectionObserver' in window)) return;
+  var io = new IntersectionObserver(function (entries) {
+    entries.forEach(function (e) {
+      if (e.isIntersecting) tabs.forEach(function (t) { t.setAttribute('aria-current', t === map[e.target.id] ? 'true' : 'false'); });
+    });
+  }, { rootMargin: '-30% 0px -60% 0px' });
+  document.querySelectorAll('.shelf').forEach(function (s) { io.observe(s); });
+})();
+</script>
+</body>
+</html>
