@@ -255,6 +255,30 @@ const PROJECTS = [
       { label: "Play with everything unlocked", note: "Skips the tutorial and opens every upgrade, achievement and codex entry.", href: "games/iron-frontier/play-unlocked.html" }
     ],
     controls: [[["A","D"],"Move"],[["Space"],"Jump"],[["Mouse"],"Aim and fire"],[["Shift"],"Dash"],[["R"],"Reload"],[["F"],"Parry"],[["G"],"Throw"],[["E"],"Interact"]]
+  },
+  {
+    id: "parasyte", section: "games",
+    title: "Parasyte", subtitle: "Survive the outbreak",
+    summary: "Top-down survival shooter against swarms of parasites that latch on and consume.",
+    body: "An alien outbreak has left parasitic organisms that swarm, latch and consume. You are one of the people still shooting back. Each run starts with a sidearm alone; find the rest of your arsenal in the field, then kill a boss or survive ten waves for crate tokens to spend back at base.",
+    tags: ["Game", "TypeScript", "Canvas 2D"],
+    cover: "games/parasyte/shots/arena.webp",
+    shots: [
+      { src: "games/parasyte/shots/arena.webp",    alt: "Top-down view of the blacksite sublevel with green parasites closing in on the player", cap: "Wave one in the blacksite sublevel. Parasites close in from every side." },
+      { src: "games/parasyte/shots/swarm.webp",    alt: "The player surrounded by a cluster of parasites on a grated floor", cap: "Get caught in a cluster and they latch on. Dodge to tear them off." },
+      { src: "games/parasyte/shots/title.webp",    alt: "Parasyte base screen with the start button, controls and run modifiers", cap: "Base: start a run, pick run modifiers, spend tokens in the shop." },
+      { src: "games/parasyte/shots/consumed.webp", alt: "Game over screen reading Consumed, with kills and time survived", cap: "Consumed. Every run ends with kills, time survived and wave reached." }
+    ],
+    facts: [
+      ["Arenas", "Quarantine yard, subway platform, blacksite sublevel, desert basin, forward operating base"],
+      ["Runs", "Start with a sidearm, find the rest, earn crate tokens from bosses or ten-wave survivals"],
+      ["Extras", "Shop, collection, loadouts and unlockable run modifiers like Blackout, Infestation and Brittle"],
+      ["Built with", "TypeScript and canvas 2D, no engine and no runtime dependencies"]
+    ],
+    actions: [
+      { label: "Play Parasyte", note: "Runs in your browser. Keyboard and mouse.", href: "games/parasyte/play.html", primary: true }
+    ],
+    controls: [[["W","A","S","D"],"Move"],[["Mouse"],"Aim"],[["LMB"],"Fire"],[["RMB"],"Detonate"],[["R"],"Reload"],[["1-5"],"Weapons"],[["Space"],"Dodge and tear free"],[["Esc"],"End run"]]
   }
 ];
 
