@@ -25,11 +25,8 @@
   if ($("#contact-links")) $("#contact-links").innerHTML = linkHTML;
   if ($("#year")) $("#year").textContent = new Date().getFullYear();
 
-  /* Nav: on the homepage the pills scroll to each section; on a section page they open that section's page */
-  $(".brand").href = PAGE ? U("") : "#top";
-  $("#pills").innerHTML = SECTIONS.map(s => PAGE
-    ? `<li><a href="${sectionURL(s.id)}"${s.id === PAGE ? ' aria-current="page"' : ""}>${s.name}</a></li>`
-    : `<li><a href="#${s.id}">${s.name}</a></li>`).join("");
+  /* Nav: the homepage has section pills; section pages have a single Back button in their own markup */
+  if (!PAGE) $("#pills").innerHTML = SECTIONS.map(s => `<li><a href="#${s.id}">${s.name}</a></li>`).join("");
 
   /* Tiles */
   const media = p => p.cover
@@ -39,18 +36,20 @@
     `<button type="button" class="tile ${size}" data-open="${esc(p.id)}" id="${esc(p.id)}"><span class="top"><span class="n">${esc(p.title)}</span><span class="c">${esc(p.tags?.[0] || "")}</span></span>${withSummary ? `<p>${esc(p.summary)}</p>` : ""}${media(p)}${ARROW}</button>`;
   const emptyTile = (s, size, label) =>
     `<div class="tile empty ${size}"><span class="top"><span class="n">${label}</span>${label === "In progress" ? '<span class="c">00</span>' : ""}</span><span class="soon">${esc(s.soon)}</span></div>`;
-  const moreTile = (s, n) =>
-    `<a class="tile more" href="${sectionURL(s.id)}"><span class="top"><span class="n">View more</span><span class="c">All ${n} ${s.name.toLowerCase()}</span></span><span class="num">${count(n)}</span>${ARROW}</a>`;
+  const moreBar = (s, n) =>
+    `<a class="morebar" href="${sectionURL(s.id)}"><span class="n">View more</span><span class="c">All ${n} ${s.name.toLowerCase()}</span>${ARROW}</a>`;
 
-  /* Homepage section: up to three projects. From three on, the third shares its row with a View more tile. */
+  /* Homepage section: up to three projects, one big and two small. From three on, a slim View more bar
+     sits under the grid and opens that section's own page. */
   function homeGrid(s) {
     const items = bySec(s.id);
     if (!items.length) return emptyTile(s, "w4", "In progress");
     if (items.length === 1) return projectTile(items[0], "w2 h2 xl", true) + emptyTile(s, "w2 h2", "Next up");
     if (items.length === 2) return projectTile(items[0], "w2 h2 xl", true) + projectTile(items[1], "w2 h2", false);
     const [a, b, c] = items.slice(0, HOME_LIMIT);
-    return projectTile(a, "w2 h2 xl", true) + projectTile(b, "w2", false) + projectTile(c, "", false) + moreTile(s, items.length);
+    return projectTile(a, "w2 h2 xl", true) + projectTile(b, "w2", false) + projectTile(c, "w2", false);
   }
+  const homeMore = s => { const n = bySec(s.id).length; return n >= HOME_LIMIT ? moreBar(s, n) : ""; };
 
   /* Section page: every project, in groups of five. A large tile alternates left and right, two wide
      tiles sit beside it and two more fill the row below. A last group of four becomes an even 2x2 of
@@ -88,7 +87,7 @@
 
     $("#sections").innerHTML = SECTIONS.map(s => {
       const alias = s.alias ? `<span id="${s.alias}" aria-hidden="true"></span>` : "";
-      return `<section class="sec" id="${s.id}" aria-labelledby="h-${s.id}">${alias}<div class="sh"><h2 id="h-${s.id}">${s.name}</h2><p>${esc(s.blurb)}</p></div><div class="bento">${homeGrid(s)}</div></section>`;
+      return `<section class="sec" id="${s.id}" aria-labelledby="h-${s.id}">${alias}<div class="sh"><h2 id="h-${s.id}">${s.name}</h2><p>${esc(s.blurb)}</p></div><div class="bento">${homeGrid(s)}</div>${homeMore(s)}</section>`;
     }).join("");
   } else {
     const s = SECTIONS.find(x => x.id === PAGE);
@@ -96,12 +95,11 @@
     document.title = `${s.name} | Kenzo Studios`;
     $("#page").innerHTML = `
       <section class="hero page-head" aria-labelledby="page-title">
-        <a class="back" href="${U("")}#${s.id}"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M19 12H5M11 6l-6 6 6 6"/></svg>Back</a>
         <h1 id="page-title"><span><em>${s.name}<b>.</b></em></span></h1>
         <div class="hx"><p>${esc(s.blurb)}</p><div class="links"><span>${count(n)} ${n === 1 ? "project" : "projects"}</span></div></div>
       </section>
       <div class="bento all">${pageGrid(s)}</div>`;
-    /* Back: return to exactly where the visitor was if they came from this site, otherwise go home */
+    /* Back (in the nav): return to exactly where the visitor was if they came from this site, otherwise go home */
     $(".back").addEventListener("click", e => {
       let fromHere = false;
       try { fromHere = document.referrer && new URL(document.referrer).origin === location.origin; } catch (_) {}

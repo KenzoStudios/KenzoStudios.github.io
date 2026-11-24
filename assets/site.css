@@ -157,16 +157,15 @@ kbd{font:500 11px/1 var(--f-mono);min-width:24px;text-align:center;padding:5px 6
   .facts dd{margin-bottom:8px}
 }
 
-/* View more tile (homepage, from three projects up) */
-.tile.more{background:var(--cobalt);color:var(--on-cobalt);border-color:transparent;justify-content:space-between}
-.tile.more .c{color:var(--cobalt-muted);white-space:normal;text-align:right}
-.tile.more:hover .n{color:var(--on-cobalt)}
-.tile.more .num{margin-top:auto;font:900 clamp(56px,6.4vw,104px)/.8 var(--f-display);font-variation-settings:"wdth" 62;letter-spacing:-.02em}
-.tile.more .go{opacity:1;transform:none;background:var(--on-cobalt);color:var(--cobalt);transition:transform .4s var(--ease)}
-.tile.more:hover .go{transform:translate(3px,-3px)}
+/* View more: a slim button under a homepage section's grid */
+.morebar{display:flex;align-items:center;justify-content:space-between;gap:16px;margin-top:var(--gap);height:clamp(56px,5vw,76px);padding:0 clamp(14px,1.4vw,20px);background:var(--cobalt);color:var(--on-cobalt);border-radius:var(--r);transition:transform .15s}
+.morebar:active{transform:translateY(1px)}
+.morebar .n{font:850 clamp(22px,2.6vw,38px)/1 var(--f-display);font-variation-settings:"wdth" 70;text-transform:uppercase}
+.morebar .c{margin-left:auto;font:500 12px var(--f-mono);color:var(--cobalt-muted)}
+.morebar .go{position:static;opacity:1;transform:none;width:36px;height:36px;background:var(--on-cobalt);color:var(--cobalt);transition:transform .4s var(--ease)}
+.morebar:hover .go{transform:translate(3px,-3px)}
 
 /* Section pages */
-.pills a[aria-current="page"]{background:var(--cobalt);color:var(--on-cobalt)}
 .page-head{padding-top:clamp(20px,3vw,40px)}
 .page-head h1{margin-top:clamp(18px,2.6vw,36px)}
 .back{display:inline-flex;align-items:center;gap:10px;padding:10px 16px 10px 12px;border:1px solid var(--edge);border-radius:var(--r);background:var(--tile);font-size:14px;font-weight:500;transition:border-color .2s,color .2s}
@@ -177,5 +176,4 @@ kbd{font:500 11px/1 var(--f-mono);min-width:24px;text-align:center;padding:5px 6
 .tile.xl.right{grid-column:3 / span 2}
 @media (max-width:760px){
   .tile.xl.right{grid-column:span 2}
-  .tile.more .num{font-size:clamp(48px,14vw,80px)}
 }
