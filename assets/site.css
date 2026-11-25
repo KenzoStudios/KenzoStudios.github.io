@@ -90,6 +90,7 @@ body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset
 .sec .bento{grid-auto-rows:clamp(170px,17vw,250px)}
 .tile.empty{cursor:default;grid-row:span 1}
 .tile.empty:hover{border-color:var(--edge)}
+.tile.empty.tall{grid-row:span 2}
 .tile.empty .n{font-size:clamp(20px,2vw,28px)}
 .tile.empty:hover .n{color:inherit}
 

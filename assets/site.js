@@ -57,19 +57,20 @@
   const homeMore = s => { const n = bySec(s.id).length; return n >= HOME_LIMIT ? moreBar(s, n) : ""; };
 
   /* Section page: every project, in groups of five. One big tile alternates left and right, and four
-     small tiles fill a 2x2 beside it. A last group of four gets a "Next up" tile in the fifth slot so
-     the grid still closes without gaps. Groups of one, two or three use larger tiles instead. */
+     small tiles fill a 2x2 beside it. A last group of four gets a "Next up" tile in the fifth slot, and a lone project gets one beside it,
+     so the grid always closes without gaps. Groups of two or three use larger tiles instead. */
   function pageGrid(s) {
     const items = bySec(s.id);
     if (!items.length) return emptyTile(s, "w4", "In progress");
     const html = items.map((p, i) => {
       const g = Math.floor(i / 5), k = i % 5, left = items.length - g * 5;
-      if (left === 1) return projectTile(p, "w4 h2 xl", true);
+      if (left === 1) return projectTile(p, `w2 h2 xl${g % 2 ? " right" : ""}`, true);
       if (left === 2) return projectTile(p, k === 0 ? "w2 h2 xl" : "w2 h2", k === 0);
       if (left === 3) return projectTile(p, k === 0 ? `w2 h2 xl${g % 2 ? " right" : ""}` : "w2", k === 0);
       return projectTile(p, k === 0 ? `w2 h2 xl${g % 2 ? " right" : ""}` : "sm", k === 0);
     }).join("");
-    return items.length % 5 === 4 ? html + emptyTile(s, "sm", "Next up") : html;
+    const rest = items.length % 5;
+    return rest === 4 ? html + emptyTile(s, "sm", "Next up") : rest === 1 ? html + emptyTile(s, "w2 tall", "Next up") : html;
   }
 
   if (!PAGE) {

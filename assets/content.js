@@ -25,6 +25,29 @@ const SECTIONS = [
 
 const PROJECTS = [
   {
+    id: "sector-news-brief", section: "agents",
+    title: "Sector News Brief", subtitle: "A daily market news agent",
+    summary: "Drop one file into a Claude chat and it sets up a scheduled brief that researches your sectors and arrives every weekday morning.",
+    body: "Sector News Brief is a one-step setup file. Give it to Claude, type \"set this up\", answer three questions (sectors, region, delivery time) and Claude creates a scheduled task that runs every weekday. Each run searches every sector separately, adds a search for the day's market calendar, opens every article to check its date, and writes a brief with an overview, three to five linked stories per sector and the day's data releases and earnings. It uses original sources such as Reuters, AP, the FT, regulators and central banks, never invents a link, and never gives investment advice.",
+    tags: ["Agent", "Claude", "Scheduled task"],
+    cover: "agents/sector-news-brief/shots/title.webp", coverFit: "contain", coverBg: "#0a0d18",
+    shots: [
+      { src: "agents/sector-news-brief/shots/title.webp",  alt: "Sector News Brief title card beside an outline of the brief: overview, banks, energy, tech and today's calendar", cap: "Sector News Brief: a daily market brief you set up once." },
+      { src: "agents/sector-news-brief/shots/format.webp", alt: "Six cards describing the brief: overview, per-sector stories, calendar, 24-hour window, real sources and hard rules", cap: "What each brief contains, and the rules it follows." },
+      { src: "agents/sector-news-brief/shots/setup.webp",  alt: "Three setup steps: drop the file in, answer three questions, it runs every weekday", cap: "One-step setup: drop it in a chat and say set this up." }
+    ],
+    facts: [
+      ["Schedule", "Monday to Friday at the time you choose, 7:30 by default"],
+      ["Sectors", "Banks, insurance, energy, tech, healthcare, real estate, consumer, industrials, crypto"],
+      ["Regions", "UK, Europe, US or global"],
+      ["Rules", "Every story links to an article it opened. No buy, sell or hold calls, price targets or predictions."],
+      ["Needs", "A paid Claude plan for the daily schedule. On a free plan it can still write a brief on request."]
+    ],
+    actions: [
+      { label: "Get the agent file", note: "A single Markdown file. Drop it into a Claude chat and type set this up.", href: "agents/sector-news-brief/sector-news-brief.md", primary: true }
+    ]
+  },
+  {
     id: "iron-frontier", section: "games",
     title: "Iron Frontier", subtitle: "Legion Rising",
     summary: "A pixel-art roguelite run-and-gun with weapon fusions and a boss at the bottom of every zone.",
