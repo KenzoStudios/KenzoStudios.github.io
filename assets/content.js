@@ -201,5 +201,31 @@ const PROJECTS = [
       { label: "Open the deck", note: "About 14 MB, so it can take a few seconds to load.", href: "presentations/mimsync-platform/", primary: true }
     ],
     controls: [[["→"],"Next slide"],[["←"],"Previous slide"]]
+  },
+  {
+    id: "ai-agents-on-claude", section: "presentations",
+    title: "AI Agents on Claude", subtitle: "A field guide to building them",
+    summary: "What agents are, where they work, how to build one on Claude, and where they still break, with sources for every claim.",
+    body: "A 19-slide guide to AI agents built from Anthropic's own engineering posts and docs. It defines an agent as a model in a loop with tools, walks the spectrum from a single call to autonomous agents, compares the four ways to run one on Claude (Messages API, Agent SDK, Claude Code and Managed Agents), and covers tools, MCP, Skills, workflow patterns, multi-agent systems and context engineering. It closes with eight limits and how to mitigate them, safety and sandboxing, a ship checklist and a numbered source list.",
+    tags: ["Deck", "AI agents", "HTML"],
+    cover: "presentations/ai-agents-on-claude/shots/title.webp", coverFit: "contain", coverBg: "#0a1224",
+    shots: [
+      { src: "presentations/ai-agents-on-claude/shots/title.webp",             alt: "Title slide: AI agents on Claude, beside an animated think, act, look loop around a goal", cap: "AI agents on Claude: a field guide." },
+      { src: "presentations/ai-agents-on-claude/shots/what-is-an-agent.webp",  alt: "Definition slide with the agent loop: think, act, observe, repeat until a stop condition", cap: "An agent is a model in a loop with tools." },
+      { src: "presentations/ai-agents-on-claude/shots/claude-stack.webp",      alt: "Table comparing the Messages API, Agent SDK, Claude Code and Managed Agents", cap: "Four ways to run an agent on Claude." },
+      { src: "presentations/ai-agents-on-claude/shots/workflow-patterns.webp", alt: "Five workflow patterns drawn as small diagrams, plus the step up to agents", cap: "Five workflow patterns cover most of the ground." },
+      { src: "presentations/ai-agents-on-claude/shots/multi-agent.webp",       alt: "Lead agent with three subagents, three headline figures and four context engineering techniques", cap: "Multi-agent systems and context engineering." },
+      { src: "presentations/ai-agents-on-claude/shots/limits.webp",            alt: "Eight limits of agents, each with a mitigation", cap: "Where agents still break, and what to do about it." }
+    ],
+    facts: [
+      ["Question", "What is an agent, and how do you build one on Claude?"],
+      ["Covers", "Loop, tools, MCP, Skills, workflows, multi-agent, context, evals, limits, safety"],
+      ["Sources", "Ten Anthropic pages, numbered and linked on the last slide, plus photo credits"],
+      ["Format", "19 slides in one self-contained page that runs in the browser"]
+    ],
+    actions: [
+      { label: "Open the deck", note: "About 1.6 MB. Use the arrow keys to move through it, F for fullscreen.", href: "presentations/ai-agents-on-claude/", primary: true }
+    ],
+    controls: [[["→","Space"],"Next slide"],[["←"],"Previous slide"],[["F"],"Fullscreen"]]
   }
 ];

@@ -178,6 +178,9 @@ kbd{font:500 11px/1 var(--f-mono);min-width:24px;text-align:center;padding:5px 6
 .back:hover svg{transform:translateX(-3px)}
 .bento.all{grid-auto-rows:clamp(170px,17vw,250px)}
 .tile.xl.right{grid-column:3 / span 2}
+/* Small tile: one grid cell, so four of them make a 2x2 beside a large tile */
+.tile.sm .n{font-size:clamp(18px,1.9vw,26px)}
+.tile.sm .fr{min-height:0}
 @media (max-width:760px){
   .tile.xl.right{grid-column:span 2}
 }
