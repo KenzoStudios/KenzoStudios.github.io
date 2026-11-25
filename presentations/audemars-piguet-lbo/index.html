@@ -1,0 +1,1172 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Project Octagon | Audemars Piguet</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;500;600&family=Geist:wght@300;400;500;600&display=swap" rel="stylesheet">
+<style>
+/* ===========================================
+   FIXED 16:9 STAGE: MANDATORY BASE STYLES (viewport-base.css)
+   =========================================== */
+html,
+body {
+    width: 100%;
+    height: 100%;
+    margin: 0;
+    overflow: hidden;
+    background: var(--stage-bg, #000);
+}
+.deck-viewport {
+    position: fixed;
+    inset: 0;
+    overflow: hidden;
+    background: var(--stage-bg, #000);
+}
+.deck-stage {
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 1920px;
+    height: 1080px;
+    overflow: hidden;
+    transform-origin: 0 0;
+    background: var(--slide-bg, #fff);
+}
+.slide {
+    position: absolute;
+    inset: 0;
+    width: 1920px;
+    height: 1080px;
+    overflow: hidden;
+    display: block;
+    visibility: hidden;
+    opacity: 0;
+    pointer-events: none;
+    background: var(--slide-bg, #fff);
+}
+.slide.active,
+.slide.visible {
+    visibility: visible;
+    opacity: 1;
+    pointer-events: auto;
+    z-index: 1;
+}
+img,
+video,
+canvas,
+svg {
+    max-width: 100%;
+    max-height: 100%;
+}
+.deck-controls {
+    position: fixed;
+    left: 50%;
+    bottom: 22px;
+    transform: translateX(-50%);
+    z-index: 1000;
+}
+@media print {
+    html, body { width: 1920px; height: auto; overflow: visible; background: #fff; }
+    .deck-viewport { position: static; overflow: visible; background: #fff; }
+    .deck-stage { position: static; width: auto; height: auto; transform: none !important; background: none; }
+    .slide { position: relative; display: block !important; visibility: visible !important; opacity: 1 !important; pointer-events: auto !important; width: 1920px; height: 1080px; break-after: page; page-break-after: always; }
+    .slide:last-child { break-after: auto; page-break-after: auto; }
+    .deck-controls { display: none !important; }
+}
+@media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after { animation-duration: 0.01ms !important; transition-duration: 0.2s !important; }
+}
+
+/* ===========================================
+   TOKENS: CINEMASCOPE
+   Graphite stage, platinum type, one midnight-blue accent.
+   Cinzel for titles and figures, Geist for everything else.
+   =========================================== */
+:root {
+    --stage-bg: #020203;
+    --slide-bg: #08090b;
+    --band: #030304;
+    --white: #ecedf0;
+    --body: #b3b7bf;
+    --grey: #8d929c;
+    --dim: #5d626b;
+    --nuit: #93abe0;
+    --nuit-soft: rgba(147, 171, 224, 0.14);
+    --line: rgba(236, 237, 240, 0.12);
+    --line-2: rgba(236, 237, 240, 0.22);
+    --display: 'Cinzel', serif;
+    --sans: 'Geist', sans-serif;
+    --ease: cubic-bezier(0.16, 1, 0.3, 1);
+    --shutter: cubic-bezier(0.7, 0, 0.2, 1);
+}
+
+.slide {
+    font-family: var(--sans);
+    color: var(--white);
+    background: var(--slide-bg);
+    transition: opacity 0.6s ease, visibility 0s linear 0.6s;
+}
+.slide.active { transition: opacity 0.8s ease 0.05s, visibility 0s; }
+
+/* ===========================================
+   MOTION: staggered reveal (.r) with --i
+   Elements reset only after the outgoing slide has faded.
+   =========================================== */
+.r {
+    opacity: 0;
+    transform: translateY(22px);
+    transition: opacity 0.9s var(--ease), transform 1.1s var(--ease);
+    transition-delay: calc(var(--i, 0) * 80ms + 220ms);
+}
+.slide.active .r { opacity: 1; transform: none; }
+.slide:not(.active) .r { transition-duration: 0s; transition-delay: 0.65s; }
+
+/* ===========================================
+   LETTERBOX FRAMES: cover + chapter slides
+   Two black bars open like a projector shutter onto a 2.4:1 frame.
+   =========================================== */
+.cover, .chapter { background: var(--band); }
+.frame {
+    position: absolute;
+    left: 0;
+    top: 140px;
+    width: 1920px;
+    height: 800px;
+    overflow: hidden;
+}
+.frame img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+    transform: scale(1.12);
+    transition: transform 10s var(--ease);
+}
+.slide.active .frame img { transform: scale(1.0); }
+.slide:not(.active) .frame img { transition: transform 0s 0.65s; }
+.frame::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(90deg, rgba(3, 3, 4, 0.94) 0%, rgba(3, 3, 4, 0.82) 36%, rgba(3, 3, 4, 0.35) 56%, rgba(3, 3, 4, 0) 72%);
+}
+/* Cover: Theme A framing, full dial macro on the right, title over darkness */
+.cover-frame img {
+    position: absolute;
+    right: 0;
+    top: 0;
+    width: 1180px;
+    height: 100%;
+    object-position: 40% 50%;
+}
+.cover-frame::after {
+    background: linear-gradient(90deg, var(--band) 0%, var(--band) 38%, rgba(3, 3, 4, 0.6) 50%, rgba(3, 3, 4, 0) 68%);
+}
+.bar {
+    position: absolute;
+    left: 0;
+    width: 1920px;
+    height: 540px;
+    background: var(--band);
+    z-index: 3;
+    transform: scaleY(1);
+    transition: transform 1.6s var(--shutter) 0.15s;
+}
+.bar.t { top: 0; transform-origin: top; }
+.bar.b { bottom: 0; transform-origin: bottom; }
+.slide.active .bar { transform: scaleY(0.2593); }
+.slide:not(.active) .bar { transition: transform 0s 0.65s; }
+
+.ch-top {
+    position: absolute;
+    left: 120px;
+    right: 120px;
+    top: 52px;
+    z-index: 4;
+    display: flex;
+    justify-content: space-between;
+    font-size: 13px;
+    letter-spacing: 0.42em;
+    color: var(--grey);
+}
+.cv-kick {
+    position: absolute;
+    left: 122px;
+    z-index: 2;
+}
+.ch-num, .cv-kick {
+    font-size: 15px;
+    letter-spacing: 0.5em;
+    color: var(--nuit);
+}
+/* Chapter text flows as one block so long titles wrap cleanly */
+.ch-text {
+    position: absolute;
+    left: 120px;
+    top: 0;
+    bottom: 0;
+    width: 920px;
+    z-index: 2;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+}
+.ch-text .ch-num { position: static; }
+.ch-title {
+    margin: 22px 0 26px -4px;
+    font: 400 124px/1.02 var(--display);
+    letter-spacing: 0.06em;
+    color: var(--white);
+}
+.ch-line {
+    width: 760px;
+    font-size: 26px;
+    line-height: 1.5;
+    font-weight: 300;
+    color: var(--body);
+}
+.ch-list {
+    position: absolute;
+    left: 120px;
+    right: 120px;
+    bottom: 56px;
+    z-index: 4;
+    display: flex;
+    gap: 56px;
+    font-size: 13px;
+    letter-spacing: 0.32em;
+    text-transform: uppercase;
+    color: var(--grey);
+}
+.ch-list span:first-child { color: var(--white); }
+
+/* Cover */
+.cv-kick { top: 330px; }
+.cv-title {
+    position: absolute;
+    left: 114px;
+    top: 370px;
+    z-index: 2;
+    margin: 0;
+    font: 400 132px/1.0 var(--display);
+    letter-spacing: 0.07em;
+}
+.cv-sub {
+    position: absolute;
+    left: 122px;
+    top: 650px;
+    z-index: 2;
+    width: 640px;
+    font-size: 25px;
+    line-height: 1.5;
+    font-weight: 300;
+    color: var(--body);
+}
+.credits {
+    position: absolute;
+    left: 120px;
+    right: 120px;
+    bottom: 40px;
+    z-index: 4;
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-end;
+}
+.credits div { font-size: 12px; letter-spacing: 0.34em; color: var(--grey); }
+.credits b { display: block; margin-top: 10px; font: 400 36px var(--display); letter-spacing: 0.05em; color: var(--white); }
+.credits .accent b { color: var(--nuit); }
+
+/* ===========================================
+   CONTENT SLIDES: letterbox bands as chrome
+   =========================================== */
+.content {
+    padding: 262px 120px 120px;
+    box-sizing: border-box;
+    background:
+        linear-gradient(var(--band) 0 92px, transparent 92px calc(100% - 82px), var(--band) calc(100% - 82px)),
+        radial-gradient(1200px 700px at 85% 0%, rgba(147, 171, 224, 0.07), transparent 60%),
+        var(--slide-bg);
+}
+.chrome-top, .chrome-bot {
+    position: absolute;
+    left: 120px;
+    right: 120px;
+    display: flex;
+    justify-content: space-between;
+    font-size: 13px;
+    letter-spacing: 0.42em;
+    color: var(--grey);
+}
+.chrome-top { top: 40px; }
+.chrome-bot { bottom: 32px; align-items: center; }
+.chrome-bot .src { letter-spacing: 0.02em; font-size: 15px; color: var(--dim); max-width: 1450px; }
+.chrome-bot .pg { letter-spacing: 0.3em; }
+.ttl {
+    position: absolute;
+    left: 120px;
+    right: 120px;
+    top: 124px;
+    margin: 0;
+    font: 400 46px/1.18 var(--display);
+    letter-spacing: 0.035em;
+    color: var(--white);
+}
+.lbl {
+    font-size: 14px;
+    font-weight: 500;
+    letter-spacing: 0.3em;
+    text-transform: uppercase;
+    color: var(--grey);
+}
+.acc { color: var(--nuit) !important; }
+p { margin: 0; }
+.note { margin-top: 22px; font-size: 18px; line-height: 1.5; color: var(--dim); }
+.note.wide { max-width: 1400px; font-size: 21px; color: var(--grey); }
+
+/* Generic two-column layouts */
+.split { display: grid; grid-template-columns: 1fr 1fr; gap: 90px; height: 100%; }
+.split.wide-l { grid-template-columns: 1.45fr 1fr; }
+.stack { display: flex; flex-direction: column; gap: 22px; }
+.callout { padding: 24px 0 0; border-top: 1px solid var(--line-2); }
+.callout b { display: block; font: 400 44px var(--display); letter-spacing: 0.03em; color: var(--white); }
+.callout p { margin-top: 8px; font-size: 20px; line-height: 1.5; color: var(--body); }
+
+/* ===========================================
+   SLIDE COMPONENTS
+   =========================================== */
+/* Executive summary */
+.exec { display: grid; grid-template-columns: 1.35fr 1fr; gap: 80px; }
+.thesis { display: flex; flex-direction: column; gap: 26px; }
+.th { display: grid; grid-template-columns: 64px 1fr; gap: 10px; padding-bottom: 24px; border-bottom: 1px solid var(--line); font-size: 22px; line-height: 1.5; color: var(--body); }
+.th:last-child { border-bottom: 0; }
+.th em { font: 400 26px var(--display); font-style: normal; color: var(--nuit); }
+.th b { color: var(--white); font-weight: 500; }
+.reco { padding: 40px 44px; border: 1px solid var(--line-2); background: linear-gradient(160deg, rgba(147, 171, 224, 0.10), rgba(147, 171, 224, 0.02)); }
+.reco-h { margin: 14px 0 26px; font: 400 32px/1.3 var(--display); letter-spacing: 0.03em; }
+.kv { display: flex; justify-content: space-between; align-items: baseline; padding: 14px 0; border-top: 1px solid var(--line); font-size: 19px; color: var(--body); }
+.kv b { font: 400 25px var(--display); color: var(--white); letter-spacing: 0.03em; }
+
+/* Transaction tiles */
+.tiles { display: grid; grid-template-columns: repeat(4, 1fr); gap: 0; border-top: 1px solid var(--line-2); }
+.tile { padding: 34px 34px 40px 0; border-bottom: 1px solid var(--line); }
+.tile + .tile:not(:nth-child(4n+1)) { padding-left: 34px; border-left: 1px solid var(--line); }
+.tile b { display: block; margin-top: 18px; font: 400 52px var(--display); letter-spacing: 0.02em; }
+.tile p { margin-top: 12px; font-size: 19px; line-height: 1.45; color: var(--body); }
+
+/* Brand overview */
+.lede { font-size: 26px; line-height: 1.5; color: var(--white); font-weight: 300; max-width: 820px; }
+.facts { margin-top: 36px; display: grid; grid-template-columns: repeat(3, 1fr); border-top: 1px solid var(--line-2); }
+.fact { padding: 22px 20px 22px 0; border-bottom: 1px solid var(--line); }
+.fact b { display: block; margin-top: 10px; font: 400 40px var(--display); letter-spacing: 0.02em; }
+.fact span { display: block; margin-top: 4px; font-size: 17px; color: var(--grey); }
+.people { margin-top: 32px; display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; }
+.people b { display: block; margin-top: 10px; font-size: 21px; font-weight: 500; }
+.people em { display: block; margin-top: 4px; font-style: normal; font-size: 16px; color: var(--grey); }
+.photo-card { position: relative; height: 690px; overflow: hidden; }
+.photo-card img { width: 100%; height: 100%; object-fit: cover; filter: saturate(0.85) brightness(0.9); }
+.photo-card .cap { position: absolute; left: 0; right: 0; bottom: 0; padding: 60px 30px 24px; background: linear-gradient(transparent, rgba(3, 3, 4, 0.9)); font-size: 17px; letter-spacing: 0.04em; color: var(--body); }
+
+/* Distribution */
+.three-steps { display: grid; grid-template-columns: 1fr 80px 1fr 80px 1fr; align-items: stretch; }
+.step { padding: 30px 34px; border: 1px solid var(--line); }
+.step.hi { border-color: rgba(147, 171, 224, 0.5); background: var(--nuit-soft); }
+.step h3 { margin: 12px 0 10px; font: 400 32px var(--display); letter-spacing: 0.03em; }
+.step p { font-size: 20px; line-height: 1.5; color: var(--body); }
+.arrow { position: relative; }
+.arrow::before { content: ""; position: absolute; left: 18px; right: 18px; top: 50%; height: 1px; background: var(--line-2); }
+.arrow::after { content: ""; position: absolute; right: 18px; top: calc(50% - 6px); width: 12px; height: 12px; border-top: 1px solid var(--grey); border-right: 1px solid var(--grey); transform: rotate(45deg); }
+.implications { margin-top: 50px; display: grid; grid-template-columns: repeat(4, 1fr); gap: 40px; }
+.implications b { display: block; padding-top: 18px; border-top: 1px solid var(--line-2); font-size: 21px; font-weight: 500; }
+.implications p { margin-top: 10px; font-size: 19px; line-height: 1.5; color: var(--body); }
+
+/* Timeline */
+.timeline { position: relative; display: grid; grid-template-columns: repeat(6, 1fr); grid-template-rows: auto auto; row-gap: 80px; column-gap: 30px; padding-top: 30px; }
+.tl-line { position: absolute; left: 0; right: 0; top: 50%; height: 1px; background: var(--line-2); }
+.ev { position: relative; padding-top: 0; }
+.ev b { display: block; font: 400 40px var(--display); letter-spacing: 0.04em; color: var(--white); }
+.ev:nth-child(5) b, .ev:nth-child(9) b { color: var(--nuit); }
+.ev span { display: block; margin-top: 10px; font-size: 18px; line-height: 1.45; color: var(--body); }
+
+/* Royal Oak moment */
+.moment { padding: 0; }
+.m-photo { position: absolute; right: 0; top: 92px; width: 1060px; height: 906px; overflow: hidden; }
+.m-photo img { width: 100%; height: 100%; object-fit: cover; transform: scale(1.1); transition: transform 10s var(--ease); }
+.moment.active .m-photo img { transform: scale(1); }
+.m-photo::after { content: ""; position: absolute; inset: 0; background: linear-gradient(90deg, var(--slide-bg), rgba(8, 9, 11, 0) 35%); }
+.m-text { position: absolute; left: 120px; top: 230px; width: 700px; }
+.m-h { margin: 18px 0 30px; font: 400 76px/1.05 var(--display); letter-spacing: 0.04em; }
+.m-text p { font-size: 23px; line-height: 1.55; color: var(--body); margin-bottom: 20px; }
+.m-stat { margin-top: 30px; padding-top: 24px; border-top: 1px solid var(--line-2); }
+.m-stat b { display: block; font: 400 64px var(--display); color: var(--nuit); }
+.m-stat span { font-size: 18px; color: var(--grey); }
+
+/* Ownership */
+.own { display: grid; grid-template-columns: 1fr 1fr; gap: 90px; }
+.own-bar { display: flex; height: 92px; margin: 22px 0 28px; }
+.seg { display: flex; align-items: center; padding: 0 24px; font-size: 19px; box-sizing: border-box; }
+.seg.fam { background: rgba(236, 237, 240, 0.10); border: 1px solid var(--line-2); color: var(--white); }
+.seg.sp { background: rgba(147, 171, 224, 0.28); border: 1px solid rgba(147, 171, 224, 0.6); color: var(--white); }
+.ticks { margin: 0; padding: 0; list-style: none; }
+.ticks li { position: relative; padding: 14px 0 14px 28px; border-top: 1px solid var(--line); font-size: 20px; line-height: 1.5; color: var(--body); }
+.ticks li::before { content: ""; position: absolute; left: 0; top: 27px; width: 12px; height: 1px; background: var(--nuit); }
+.own-nums { display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; }
+.own-nums b { display: block; font: 400 36px var(--display); letter-spacing: 0.02em; }
+.own-nums span { font-size: 16px; color: var(--grey); }
+.board { margin-top: 40px; }
+.seats { display: flex; gap: 14px; margin: 18px 0 14px; }
+.seats i, .legend i { display: inline-block; width: 46px; height: 46px; border-radius: 50%; }
+.legend { display: flex; gap: 26px; font-size: 16px; color: var(--grey); }
+.legend i { width: 12px; height: 12px; margin-right: 8px; }
+i.s { background: rgba(147, 171, 224, 0.75); }
+i.f { background: rgba(236, 237, 240, 0.55); }
+i.n { border: 1px solid var(--grey); box-sizing: border-box; }
+i.m { background: var(--dim); }
+
+/* Path to control */
+.path { display: grid; grid-template-columns: 1fr 1.15fr; gap: 90px; }
+.qa { margin-top: 22px; padding-top: 20px; border-top: 1px solid var(--line); }
+.qa b { font: 400 28px var(--display); letter-spacing: 0.03em; }
+.qa p { margin-top: 8px; font-size: 20px; line-height: 1.5; color: var(--body); }
+.commit { display: grid; grid-template-columns: 56px 1fr; margin-top: 20px; padding: 20px 24px; border: 1px solid var(--line); }
+.commit em { font: 400 30px var(--display); font-style: normal; color: var(--nuit); }
+.commit p { font-size: 20px; line-height: 1.5; color: var(--body); }
+.commit b { color: var(--white); font-weight: 500; }
+
+/* Key models */
+.models { display: grid; grid-template-columns: repeat(5, 1fr); gap: 34px; }
+.model { display: flex; flex-direction: column; }
+.m-img { height: 330px; display: flex; align-items: center; justify-content: center; background: radial-gradient(circle at 50% 55%, rgba(147, 171, 224, 0.12), transparent 65%); }
+.m-img img { max-height: 310px; max-width: 100%; object-fit: contain; filter: drop-shadow(0 30px 40px rgba(0, 0, 0, 0.6)); }
+.m-y { margin-top: 18px; font: 400 18px var(--display); letter-spacing: 0.2em; color: var(--nuit); }
+.model h3 { margin: 6px 0 10px; font: 400 27px/1.2 var(--display); letter-spacing: 0.03em; }
+.model p { font-size: 17px; line-height: 1.5; color: var(--body); flex: 1; }
+.m-role { margin-top: 14px; padding-top: 12px; border-top: 1px solid var(--line); font-size: 14px; letter-spacing: 0.16em; text-transform: uppercase; color: var(--grey); }
+
+/* Horizontal bars */
+.hbars { margin-top: 26px; display: flex; flex-direction: column; gap: 20px; }
+.hb { display: grid; grid-template-columns: 330px 1fr 90px; align-items: center; gap: 22px; }
+.hb-l { font-size: 20px; color: var(--body); }
+.hb-t { height: 34px; }
+.hb-f { height: 100%; background: rgba(236, 237, 240, 0.22); transform-origin: left; transform: scaleX(0); transition: transform 1.2s var(--ease); transition-delay: calc(var(--i, 0) * 80ms + 400ms); }
+.slide.active .hb-f { transform: scaleX(1); }
+.slide:not(.active) .hb-f { transition: transform 0s 0.65s; }
+.hb-f.acc, .hb.bid .hb-f { background: var(--nuit); }
+.hb.deal .hb-f { background: rgba(236, 237, 240, 0.45); }
+.hb.ask .hb-f { background: transparent; border: 1px dashed var(--grey); box-sizing: border-box; }
+.hb.bid .hb-l, .hb.bid b { color: var(--nuit); }
+.hb b { font: 400 24px var(--display); text-align: right; }
+.comps .hb { grid-template-columns: 360px 1fr 90px; }
+.legend2 { display: flex; gap: 34px; margin-top: 30px; font-size: 16px; color: var(--grey); }
+.legend2 i { display: inline-block; width: 14px; height: 14px; margin-right: 10px; vertical-align: -1px; }
+.legend2 .est { background: rgba(236, 237, 240, 0.45); }
+.legend2 .e { background: rgba(236, 237, 240, 0.22); }
+.legend2 .p { background: var(--nuit); }
+.legend2 .tr { background: rgba(236, 237, 240, 0.22); }
+.legend2 .dl { background: rgba(236, 237, 240, 0.45); }
+.legend2 .bd { background: var(--nuit); }
+
+/* Vertical bars */
+.vbars { margin-top: 30px; height: 610px; display: flex; align-items: flex-end; gap: 34px; padding-bottom: 0; border-bottom: 1px solid var(--line-2); }
+.vb { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: flex-end; height: 100%; }
+.vb b { font: 400 26px var(--display); margin-bottom: 12px; }
+.vb-bar { width: 100%; background: rgba(236, 237, 240, 0.22); transform-origin: bottom; transform: scaleY(0); transition: transform 1.2s var(--ease); transition-delay: calc(var(--i, 0) * 70ms + 400ms); }
+.slide.active .vb-bar { transform: scaleY(1); }
+.slide:not(.active) .vb-bar { transition: transform 0s 0.65s; }
+.vb-bar.acc { background: var(--nuit); }
+.vb span { position: relative; top: 44px; height: 0; font-size: 17px; color: var(--grey); white-space: nowrap; }
+.vbars.rev { height: 540px; gap: 22px; }
+.vbars.rev .vb b { font-size: 22px; }
+.vb.est .vb-bar { background: rgba(236, 237, 240, 0.45); }
+.vb.e .vb-bar { background: rgba(236, 237, 240, 0.22); }
+.vb.p .vb-bar { background: rgba(147, 171, 224, 0.75); }
+.legend2 { margin-top: 64px; }
+
+/* Financial tables */
+table { border-collapse: collapse; width: 100%; font-variant-numeric: tabular-nums; }
+.fin th, .fin td, .tbl th, .tbl td, .cmp th, .cmp td { padding: 11px 12px; text-align: right; font-size: 19px; border-bottom: 1px solid var(--line); }
+.fin th:first-child, .fin td:first-child, .tbl th:first-child, .tbl td:first-child, .cmp th:first-child, .cmp td:first-child { text-align: left; padding-left: 0; }
+.fin thead th, .tbl thead th, .cmp thead th { font-size: 13px; font-weight: 500; letter-spacing: 0.2em; text-transform: uppercase; color: var(--grey); border-bottom: 1px solid var(--line-2); }
+.fin td { color: var(--body); }
+.fin tr.sub td { font-size: 16px; color: var(--dim); }
+.fin tr.b td { color: var(--white); font-weight: 500; }
+.fin tr.acc td { color: var(--nuit); }
+
+/* Market context */
+.ctx { display: grid; grid-template-columns: repeat(4, 1fr); gap: 34px; }
+.ctx-c { padding: 30px 30px 34px; border: 1px solid var(--line); }
+.ctx-c.hi { border-color: rgba(147, 171, 224, 0.5); background: var(--nuit-soft); }
+.ctx-c b { display: block; font: 400 60px var(--display); letter-spacing: 0.02em; }
+.ctx-c.hi b { color: var(--nuit); }
+.ctx-c h3 { margin: 14px 0 10px; font-size: 21px; font-weight: 500; }
+.ctx-c p { font-size: 19px; line-height: 1.5; color: var(--body); }
+.ctx-read { margin-top: 50px; display: grid; grid-template-columns: 260px 1fr; gap: 40px; padding-top: 28px; border-top: 1px solid var(--line-2); }
+.ctx-read p { font-size: 24px; line-height: 1.55; color: var(--white); font-weight: 300; }
+
+/* Sources & uses */
+.su { display: grid; grid-template-columns: 1.25fr 1fr; gap: 80px; }
+.su-t { margin-top: 18px; }
+.su-t td em { display: block; font-style: normal; font-size: 15px; color: var(--dim); margin-top: 4px; }
+.tbl td { color: var(--body); }
+.tbl tr.tot td { color: var(--white); font-weight: 500; border-top: 1px solid var(--line-2); border-bottom: 0; }
+.cap-bar { display: flex; height: 62px; margin-top: 40px; gap: 3px; }
+.cap-bar div { display: flex; align-items: center; justify-content: center; font-size: 15px; letter-spacing: 0.1em; }
+.cap-bar .c1 { background: rgba(147, 171, 224, 0.75); color: #0a0d14; }
+.cap-bar .c2 { background: rgba(147, 171, 224, 0.45); }
+.cap-bar .c3 { background: rgba(147, 171, 224, 0.22); }
+.cap-bar .c4 { background: rgba(236, 237, 240, 0.12); border: 1px solid var(--line-2); }
+.cap-leg { margin-top: 18px !important; }
+
+/* Operating plan */
+.levers { margin-top: 18px; }
+.lever { display: grid; grid-template-columns: 330px 1fr; gap: 26px; padding: 18px 0; border-top: 1px solid var(--line); }
+.lever b { display: block; font-size: 21px; font-weight: 500; }
+.lever span { display: block; margin-top: 4px; font: 400 22px var(--display); color: var(--nuit); }
+.lever p { font-size: 19px; line-height: 1.5; color: var(--body); }
+.cmp td { color: var(--body); }
+.cmp th.acc, .cmp td.acc { color: var(--nuit); background: var(--nuit-soft); }
+
+/* Charts (SVG) */
+.chart { width: 100%; height: auto; overflow: visible; }
+.chart .sb { fill: rgba(236, 237, 240, 0.2); }
+.chart .sv { fill: var(--white); font: 400 22px var(--display); text-anchor: middle; }
+.chart .sx { fill: var(--grey); font: 400 17px var(--sans); text-anchor: middle; }
+.chart .sl { fill: none; stroke: var(--nuit); stroke-width: 3; }
+.chart .sd { fill: var(--slide-bg); stroke: var(--nuit); stroke-width: 3; }
+.chart .sll { fill: var(--nuit); font: 500 19px var(--sans); }
+.chart rect { transform-box: fill-box; transform-origin: bottom; transform: scaleY(0); transition: transform 1.1s var(--ease); transition-delay: calc(var(--i, 0) * 90ms + 400ms); }
+.slide.active .chart rect { transform: scaleY(1); }
+.slide:not(.active) .chart rect { transition: transform 0s 0.65s; }
+.chart .wf.base { fill: rgba(236, 237, 240, 0.3); }
+.chart .wf.up { fill: var(--nuit); }
+.chart .wf.down { fill: rgba(236, 237, 240, 0.12); stroke: var(--grey); stroke-dasharray: 4 4; }
+.small th, .small td { font-size: 17px !important; padding: 9px 10px !important; }
+
+/* Returns */
+.scns { display: grid; grid-template-columns: repeat(5, 1fr); gap: 20px; }
+.scn { padding: 20px 24px; border: 1px solid var(--line); }
+.scn b { display: block; margin-top: 8px; font: 400 44px var(--display); }
+.scn span { font-size: 17px; color: var(--grey); }
+.scn.hi { border-color: rgba(147, 171, 224, 0.6); background: var(--nuit-soft); }
+.scn.hi b { color: var(--nuit); }
+.scn.ask { border-style: dashed; }
+.wf-wrap { position: absolute; left: 120px; top: 470px; width: 1180px; }
+.wf-wrap .chart { margin-top: 10px; }
+.wf-side { position: absolute; left: 1380px; right: 120px; top: 520px; display: flex; flex-direction: column; gap: 26px; }
+.wf-side div { padding-top: 18px; border-top: 1px solid var(--line-2); }
+.wf-side b { display: block; font: 400 44px var(--display); color: var(--white); }
+.wf-side span { font-size: 19px; line-height: 1.45; color: var(--body); }
+
+/* Heatmaps */
+.heat { border-collapse: separate; border-spacing: 4px; }
+.heat th { font-size: 17px; font-weight: 500; color: var(--grey); padding: 10px; }
+.heat thead th { letter-spacing: 0.06em; }
+.heat tbody th { text-align: right; padding-right: 16px; }
+.heat td { text-align: center; font: 400 23px var(--sans); padding: 20px 8px; color: var(--white); }
+.heat td.ok { box-shadow: inset 0 0 0 1px rgba(147, 171, 224, 0.75); }
+.heat td.mark { box-shadow: inset 0 0 0 3px var(--white); font-weight: 600; }
+.heat .corner { text-align: left; font-size: 12px; letter-spacing: 0.2em; line-height: 1.6; }
+.heat .corner span { display: block; }
+.heat .corner span:last-child { color: var(--nuit); }
+.two-heat { display: grid; grid-template-columns: 1fr 1fr; gap: 70px; }
+.two-heat .heat { margin-top: 14px; }
+.two-heat .heat td { padding: 13px 6px; font-size: 20px; }
+.mini { margin-top: 16px; }
+
+/* Walk-away */
+.wks { display: grid; grid-template-columns: repeat(4, 1fr); gap: 30px; }
+.wk { padding: 26px 30px; border: 1px solid var(--line); }
+.wk:nth-child(3) { border-color: rgba(147, 171, 224, 0.6); background: var(--nuit-soft); }
+.wk b { display: block; margin: 12px 0 4px; font: 400 64px var(--display); }
+.wk:nth-child(3) b { color: var(--nuit); }
+.wk span { font-size: 19px; color: var(--grey); }
+.range { margin-top: 110px; position: relative; }
+.rg-track { position: relative; height: 4px; background: var(--line-2); }
+.rg-zone { position: absolute; top: -10px; height: 24px; background: var(--nuit-soft); border: 1px solid rgba(147, 171, 224, 0.5); }
+.rg-pin { position: absolute; top: -50px; width: 2px; height: 104px; background: var(--white); }
+.rg-pin span { position: absolute; top: -34px; left: 50%; transform: translateX(-50%); white-space: nowrap; font-size: 19px; color: var(--white); }
+.rg-pin.wa { background: var(--nuit); }
+.rg-pin.wa span { color: var(--nuit); }
+.rg-pin.ask { background: var(--grey); }
+.rg-pin.ask span { color: var(--grey); }
+.rg-ticks { position: relative; height: 40px; margin-top: 62px; }
+.rg-ticks span { position: absolute; transform: translateX(-50%); font-size: 17px; color: var(--dim); }
+
+/* Risk matrix */
+.matrix-wrap { display: grid; grid-template-columns: 40px 1fr; grid-template-rows: 1fr 40px; height: 660px; }
+.ax-y { writing-mode: vertical-rl; transform: rotate(180deg); text-align: center; font-size: 13px; letter-spacing: 0.3em; color: var(--grey); }
+.ax-x { grid-column: 2; text-align: center; padding-top: 14px; font-size: 13px; letter-spacing: 0.3em; color: var(--grey); }
+.matrix { display: grid; grid-template-columns: repeat(5, 1fr); grid-template-rows: repeat(5, 1fr); gap: 4px; }
+.mc { display: flex; flex-wrap: wrap; align-content: center; justify-content: center; gap: 8px; }
+.mc.lo { background: rgba(236, 237, 240, 0.04); }
+.mc.md { background: rgba(147, 171, 224, 0.12); }
+.mc.hi { background: rgba(147, 171, 224, 0.30); }
+.mc i, .rl i { display: inline-flex; align-items: center; justify-content: center; width: 38px; height: 38px; border-radius: 50%; background: var(--white); color: #0a0b0d; font: 600 16px var(--sans); font-style: normal; }
+.risk-leg { display: flex; flex-direction: column; gap: 12px; }
+.rl { display: grid; grid-template-columns: 52px 1fr; align-items: center; padding-bottom: 12px; border-bottom: 1px solid var(--line); font-size: 20px; color: var(--body); }
+
+/* Risks table */
+.risks td { text-align: left !important; vertical-align: top; padding: 14px 16px 14px 0 !important; font-size: 18.5px !important; line-height: 1.45; }
+.risks td:first-child { width: 380px; color: var(--white); font-weight: 500; }
+.risks td:nth-child(2) { width: 150px; }
+.risks th { text-align: left !important; }
+.sev { display: inline-block; padding: 4px 12px; font-size: 14px; letter-spacing: 0.1em; text-transform: uppercase; border: 1px solid var(--line-2); color: var(--body); }
+.sev.shig { background: rgba(147, 171, 224, 0.35); border-color: rgba(147, 171, 224, 0.7); color: var(--white); }
+.sev.smed { background: rgba(147, 171, 224, 0.12); }
+.sev.sdow { border-style: dashed; }
+
+/* Value-creation phases */
+.phases { display: grid; grid-template-columns: repeat(3, 1fr); gap: 50px; }
+.phase { padding-top: 26px; border-top: 2px solid var(--line-2); }
+.phase:first-child { border-top-color: var(--nuit); }
+.phase .lbl { font-size: 15px; }
+.phase ul { margin: 22px 0 0; padding: 0; list-style: none; }
+.phase li { padding: 18px 0; border-bottom: 1px solid var(--line); font-size: 22px; line-height: 1.45; color: var(--body); }
+
+/* Recommendation */
+.ask-grid { display: grid; grid-template-columns: 1.1fr 1fr; gap: 80px; }
+.ask-main { padding: 40px 46px; border: 1px solid rgba(147, 171, 224, 0.5); background: linear-gradient(160deg, rgba(147, 171, 224, 0.12), rgba(147, 171, 224, 0.02)); }
+.ask-h { margin-top: 18px; font: 400 32px/1.45 var(--display); letter-spacing: 0.02em; color: var(--white); }
+.ask-h b { font-weight: 500; color: var(--nuit); }
+.ask-k { margin-top: 40px; display: grid; grid-template-columns: repeat(4, 1fr); gap: 20px; border-top: 1px solid var(--line-2); padding-top: 24px; }
+.ask-k b { display: block; font: 400 32px var(--display); white-space: nowrap; }
+.ask-k span { font-size: 16px; color: var(--grey); }
+.next ol { margin: 18px 0 0; padding: 0; list-style: none; counter-reset: n; }
+.next li { counter-increment: n; position: relative; padding: 18px 0 18px 56px; border-top: 1px solid var(--line); font-size: 20px; line-height: 1.5; color: var(--body); }
+.next li::before { content: counter(n); position: absolute; left: 0; top: 16px; font: 400 26px var(--display); color: var(--nuit); }
+.next li b { color: var(--white); font-weight: 500; }
+
+/* Sources */
+.sources { display: grid; grid-template-columns: 1fr 1fr; gap: 80px; }
+.sources p { margin-top: 18px; font-size: 20px; line-height: 1.6; color: var(--body); }
+.src-list { margin: 18px 0 0; padding: 0; list-style: none; }
+.src-list li { padding: 11px 0; border-bottom: 1px solid var(--line); font-size: 18px; line-height: 1.45; color: var(--body); }
+
+/* ===========================================
+   DECK CHROME (outside the stage)
+   =========================================== */
+.progress { position: fixed; left: 0; top: 0; height: 2px; background: #93abe0; z-index: 1001; transition: width 0.6s cubic-bezier(0.16, 1, 0.3, 1); }
+.deck-controls { display: flex; align-items: center; gap: 12px; padding: 7px 9px; border-radius: 100px; background: rgba(8, 9, 11, 0.85); border: 1px solid rgba(236, 237, 240, 0.14); backdrop-filter: blur(10px); font: 500 13px 'Geist', sans-serif; letter-spacing: 0.2em; color: #ecedf0; transition: opacity 0.4s ease; }
+.deck-controls.idle { opacity: 0; pointer-events: none; }
+.deck-controls button { width: 38px; height: 38px; border-radius: 50%; border: 1px solid rgba(236, 237, 240, 0.25); background: transparent; color: #ecedf0; cursor: pointer; font-size: 15px; }
+.deck-controls button:hover { background: rgba(236, 237, 240, 0.08); }
+.deck-controls button:focus-visible { outline: 2px solid #93abe0; outline-offset: 2px; }
+.deck-controls .counter { min-width: 84px; text-align: center; font-variant-numeric: tabular-nums; }
+.edit-hint { position: fixed; top: 14px; left: 14px; z-index: 1002; padding: 7px 14px; border-radius: 100px; background: rgba(8, 9, 11, 0.85); font: 13px 'Geist', sans-serif; color: #ecedf0; opacity: 0; pointer-events: none; transition: opacity 0.2s; }
+.edit-hint.show { opacity: 1; }
+body.editing [contenteditable="true"] { outline: 1px dashed rgba(147, 171, 224, 0.7); outline-offset: 4px; cursor: text; }
+</style>
+</head>
+<body>
+<div class="progress" id="progress"></div>
+<div class="deck-viewport">
+<div class="deck-stage" id="stage">
+<section class="slide cover active">
+  <div class="frame cover-frame"><img src="assets/ro-15510st-oo-1320st-01-closeup-facelift-i6-tif-910d94.jpg" alt="Royal Oak bezel and Tapisserie dial, macro"></div>
+  <div class="bar t"></div><div class="bar b"></div>
+  <div class="ch-top r" style="--i:6"><span>AUDEMARS PIGUET</span><span>INVESTMENT COMMITTEE</span></div>
+  <div class="cv-kick r" style="--i:8">A PROPOSED ACQUISITION</div>
+  <h1 class="cv-title r" style="--i:9">Project<br>Octagon</h1>
+  <div class="cv-sub r" style="--i:11">A controlling stake in Le Brassus' independent manufacture, with a founding-family rollover.</div>
+  <div class="credits">
+    <div class="r" style="--i:13">ENTERPRISE VALUE<b>CHF 16.4bn</b></div>
+    <div class="r accent" style="--i:14">SPONSOR-CASE IRR<b>17.5%</b></div>
+    <div class="r" style="--i:15">MOIC<b>2.24x</b></div>
+    <div class="r" style="--i:16">STRICTLY CONFIDENTIAL<b>Nov 2026</b></div>
+  </div>
+</section>
+<section class="slide content "><div class="chrome-top"><span>AUDEMARS PIGUET</span><span>EXECUTIVE SUMMARY</span></div><div class="chrome-bot"><span class="src">Source: Morgan Stanley x LuxeConsult estimates; deal-team model. All AP financials are estimates; AP is private.</span><span class="pg">02 / 35</span></div><h2 class="ttl r" style="--i:0">The scarcest asset in Swiss watchmaking, bought at a disciplined price</h2>
+<div class="exec">
+  <div class="thesis">
+    <div class="th r" style="--i:1"><em>01</em><div><b>A category of one.</b> Number three Swiss watch brand by turnover in 2025 (est. CHF 2.6bn, +9-10%) with roughly 53,000 watches a year and demand that still exceeds supply.</div></div>
+    <div class="th r" style="--i:2"><em>02</em><div><b>Retail model already rebuilt.</b> About 90% of sales run through its own boutiques and AP Houses, so AP keeps the retail margin and controls allocation, pricing and data.</div></div>
+    <div class="th r" style="--i:3"><em>03</em><div><b>Cash machine with low leverage need.</b> Estimated 35% EBITDA margin and 46-62% cash conversion repay debt to 3.0x net leverage by FY2029.</div></div>
+    <div class="th r" style="--i:4"><em>04</em><div><b>Price is the risk, not the asset.</b> At the seller-anchored 20x the deal returns only 9.5%. At our 17.0x the base case clears 14.8% and the sponsor plan 17.5%.</div></div>
+  </div>
+  <div class="reco r" style="--i:5">
+    <div class="lbl">RECOMMENDATION</div>
+    <div class="reco-h">Approve a non-binding offer at 17.0x FY2026E EBITDA</div>
+    <div class="kv"><span>Enterprise value</span><b>CHF 16.4bn</b></div>
+    <div class="kv"><span>Total leverage</span><b>6.0x / CHF 5.8bn</b></div>
+    <div class="kv"><span>Equity cheque (sponsor 70%)</span><b>CHF 7.9bn</b></div>
+    <div class="kv"><span>Sponsor-case IRR / MOIC</span><b class="acc">17.5% / 2.24x</b></div>
+    <div class="kv"><span>Walk-away price (15% hurdle)</span><b>18.3x</b></div>
+  </div>
+</div></section>
+<section class="slide content "><div class="chrome-top"><span>AUDEMARS PIGUET</span><span>TRANSACTION AT A GLANCE</span></div><div class="chrome-bot"><span class="src">Model convention: entry on FY2026E figures, five-year hold FY2027-FY2031. Close timing to be confirmed.</span><span class="pg">03 / 35</span></div><h2 class="ttl r" style="--i:0">Transaction at a glance</h2><div class="tiles"><div class="tile r" style="--i:1"><div class="lbl">ENTERPRISE VALUE</div><b>CHF 16.4bn</b><p>17.0x FY2026E EBITDA of CHF 965m</p></div><div class="tile r" style="--i:2"><div class="lbl">EV / REVENUE</div><b>5.9x</b><p>FY2026E revenue CHF 2,756m</p></div><div class="tile r" style="--i:3"><div class="lbl">TOTAL DEBT</div><b>CHF 5.8bn</b><p>6.0x EBITDA across TLB, notes and PIK</p></div><div class="tile r" style="--i:4"><div class="lbl">TOTAL EQUITY</div><b>CHF 11.3bn</b><p>66% of total sources</p></div><div class="tile r" style="--i:5"><div class="lbl">FAMILY ROLLOVER</div><b>CHF 3.4bn</b><p>30% of equity stays with the founding families</p></div><div class="tile r" style="--i:6"><div class="lbl">SPONSOR CHEQUE</div><b>CHF 7.9bn</b><p>70% economic and voting control</p></div><div class="tile r" style="--i:7"><div class="lbl">SPONSOR-CASE RETURNS</div><b class=acc>17.5%</b><p>2.24x MOIC over five years</p></div><div class="tile r" style="--i:8"><div class="lbl">EXIT</div><b>FY2031</b><p>18.0x exit multiple, IPO or trade sale</p></div></div></section>
+<section class="slide chapter">
+  <div class="frame"><img src="assets/ap-img-find-boutique-v2-dcd10e.jpg" alt="" style="object-position:50% 45%"></div>
+  <div class="bar t"></div><div class="bar b"></div>
+  <div class="ch-top r" style="--i:6"><span>AUDEMARS PIGUET</span><span>PROJECT OCTAGON</span></div>
+  <div class="ch-text">
+    <div class="ch-num r" style="--i:7">CHAPTER I</div>
+    <h2 class="ch-title r" style="--i:8">The House</h2>
+    <div class="ch-line r" style="--i:9">Independent, family-controlled and vertically integrated since 1875.</div>
+  </div>
+  <div class="ch-list r" style="--i:10"><span>Brand overview</span><span>Distribution model</span></div>
+</section>
+<section class="slide content "><div class="chrome-top"><span>AUDEMARS PIGUET</span><span>THE HOUSE</span></div><div class="chrome-bot"><span class="src">Source: Morgan Stanley x LuxeConsult (2025 estimates); company statements; press. Revenue per watch derived by the deal team.</span><span class="pg">05 / 35</span></div><h2 class="ttl r" style="--i:0">Brand overview</h2>
+<div class="split">
+  <div class="col-l">
+    <p class="lede r" style="--i:1">One of the three houses of the "Holy Trinity" of haute horlogerie, alongside Patek Philippe and Vacheron Constantin, and the only one still owned by its founding families.</p>
+    <div class="facts"><div class="fact r" style="--i:1"><div class="lbl">FOUNDED</div><b>1875</b><span>Le Brassus, Vallée de Joux</span></div><div class="fact r" style="--i:2"><div class="lbl">2025 REVENUE</div><b>CHF 2.6bn</b><span>Est., #3 Swiss brand</span></div><div class="fact r" style="--i:3"><div class="lbl">2025 VOLUME</div><b>~53,000</b><span>Watches, est.</span></div><div class="fact r" style="--i:4"><div class="lbl">REVENUE / WATCH</div><b>CHF ~49k</b><span>Implied, est.</span></div><div class="fact r" style="--i:5"><div class="lbl">POINTS OF SALE</div><b>76</b><span>Incl. 25 AP Houses</span></div><div class="fact r" style="--i:6"><div class="lbl">MONO-BRAND SHARE</div><b>~90%</b><span>Of sales, est.</span></div></div>
+    <div class="people r" style="--i:8">
+      <div><span class="lbl">CHIEF EXECUTIVE</span><b>Ilaria Resta</b><em>Since January 2024</em></div>
+      <div><span class="lbl">CHAIRMAN</span><b>Alessandro Bogliolo</b><em>Since November 2022</em></div>
+      <div><span class="lbl">VICE-CHAIRMAN</span><b>Olivier Audemars</b><em>Fourth-generation family</em></div>
+    </div>
+  </div>
+  <div class="col-r photo-card r" style="--i:3"><img src="assets/carousel-story-extraordinary-0cbe23.jpg" alt="Audemars Piguet craftsperson at work" style="object-position:62% 50%"><div class="cap">In-house savoir-faire: vertically integrated manufacturing</div></div>
+</div></section>
+<section class="slide content "><div class="chrome-top"><span>AUDEMARS PIGUET</span><span>THE HOUSE</span></div><div class="chrome-bot"><span class="src">Source: Morgan Stanley x LuxeConsult; watchesbysjx (Vontobel); Milano Finanza; Revolution; Wallpaper.</span><span class="pg">06 / 35</span></div><h2 class="ttl r" style="--i:0">From wholesale to owned retail: the margin is already captured</h2>
+<div class="three-steps">
+  <div class="step r" style="--i:1"><div class="lbl">2015</div><h3>Wholesale-led</h3><p>Hundreds of authorised dealers controlled the client and kept the retail margin.</p></div>
+  <div class="arrow r" style="--i:2"></div>
+  <div class="step r" style="--i:3"><div class="lbl">2018-2024</div><h3>The retail pivot</h3><p>Dealer network largely terminated. Boutiques and AP Houses (private, apartment-style client spaces) opened in key cities.</p></div>
+  <div class="arrow r" style="--i:4"></div>
+  <div class="step hi r" style="--i:5"><div class="lbl">2025</div><h3>Direct-to-client</h3><p>76 points of sale, about 90% of sales mono-brand. No e-commerce: every watch is sold by appointment.</p></div>
+</div>
+<div class="implications">
+  <div class="r" style="--i:6"><b>Margin</b><p>Retail margin captured, supporting an estimated 35% EBITDA margin versus a 22% industry average.</p></div>
+  <div class="r" style="--i:7"><b>Allocation</b><p>AP controls who buys which reference, protecting secondary-market prices.</p></div>
+  <div class="r" style="--i:8"><b>Growth is now organic</b><p>The one-off uplift from the retail switch is largely complete, so future growth relies on price, mix and AP House roll-out.</p></div>
+  <div class="r" style="--i:9"><b>Brand reach</b><p>The May 2026 Swatch x AP "Royal Pop" pocket watches (from USD 400) widened awareness without diluting the core line.</p></div>
+</div></section>
+<section class="slide chapter">
+  <div class="frame"><img src="assets/ro-15510st-oo-1320st-01-closeup-facelift-i6-tif-ebd713.jpg" alt="" style="object-position:50% 50%"></div>
+  <div class="bar t"></div><div class="bar b"></div>
+  <div class="ch-top r" style="--i:6"><span>AUDEMARS PIGUET</span><span>PROJECT OCTAGON</span></div>
+  <div class="ch-text">
+    <div class="ch-num r" style="--i:7">CHAPTER II</div>
+    <h2 class="ch-title r" style="--i:8">150 Years</h2>
+    <div class="ch-line r" style="--i:9">From pocket-watch complications to the steel sports watch that redefined luxury.</div>
+  </div>
+  <div class="ch-list r" style="--i:10"><span>Timeline</span><span>The Royal Oak moment</span></div>
+</section>
+<section class="slide content "><div class="chrome-top"><span>AUDEMARS PIGUET</span><span>150 YEARS</span></div><div class="chrome-bot"><span class="src">Source: Audemars Piguet; AP Chronicles; press.</span><span class="pg">08 / 35</span></div><h2 class="ttl r" style="--i:0">A history of complication, then disruption</h2><div class="timeline"><div class="tl-line"></div><div class="ev r" style="--i:1"><b>1875</b><span>Founded in Le Brassus by Jules-Louis Audemars and Edward-Auguste Piguet</span></div><div class="ev r" style="--i:2"><b>1892</b><span>First minute-repeater wristwatch movement</span></div><div class="ev r" style="--i:3"><b>1946</b><span>World's thinnest wristwatch movement, 1.64mm</span></div><div class="ev r" style="--i:4"><b>1972</b><span>Royal Oak by Gérald Genta: the first luxury steel sports watch</span></div><div class="ev r" style="--i:5"><b>1993</b><span>Royal Oak Offshore opens a bolder, larger line</span></div><div class="ev r" style="--i:6"><b>2002</b><span>Royal Oak Concept: the experimental haute-complication platform</span></div><div class="ev r" style="--i:7"><b>2019</b><span>Code 11.59 launched, the first new collection in decades</span></div><div class="ev r" style="--i:8"><b>2020</b><span>Musée Atelier Audemars Piguet opens in Le Brassus</span></div><div class="ev r" style="--i:9"><b>2022</b><span>Royal Oak 50th anniversary; Bogliolo succeeds Jasmine Audemars as chair</span></div><div class="ev r" style="--i:10"><b>2024</b><span>Ilaria Resta becomes CEO</span></div><div class="ev r" style="--i:11"><b>2025</b><span>150th anniversary; turnover up about 10%</span></div><div class="ev r" style="--i:12"><b>2026</b><span>Swatch x AP "Royal Pop"; return to Watches & Wonders</span></div></div></section>
+<section class="slide content moment"><div class="chrome-top"><span>AUDEMARS PIGUET</span><span>150 YEARS</span></div><div class="chrome-bot"><span class="src">Source: Audemars Piguet; press. 1972 launch price widely reported.</span><span class="pg">09 / 35</span></div>
+  <div class="m-photo"><img src="assets/ro-15510st-oo-1320st-01-closeup-facelift-i6-tif-73ddd2.jpg" alt="Royal Oak Tapisserie dial, macro"></div>
+  <div class="m-text">
+    <div class="lbl r" style="--i:1">BASEL, 1972</div>
+    <h2 class="m-h r" style="--i:2">Steel, priced like gold</h2>
+    <p class="r" style="--i:3">Gérald Genta's octagonal bezel, eight hexagonal screws and integrated bracelet launched at about CHF 3,300, more than many gold dress watches. It created the luxury sports-watch category.</p>
+    <p class="r" style="--i:4">Fifty years on, the Royal Oak family is still the economic engine of the House and the reason demand outruns production.</p>
+    <div class="m-stat r" style="--i:5"><b>+36%</b><span>Royal Oak secondary-market premium over retail, Q2 2026 (reported)</span></div>
+  </div>
+</section>
+<section class="slide chapter">
+  <div class="frame"><img src="assets/ro-15510st-oo-1320st-01-closeup-facelift-i4-tif-33097c.jpg" alt="" style="object-position:50% 50%"></div>
+  <div class="bar t"></div><div class="bar b"></div>
+  <div class="ch-top r" style="--i:6"><span>AUDEMARS PIGUET</span><span>PROJECT OCTAGON</span></div>
+  <div class="ch-text">
+    <div class="ch-num r" style="--i:7">CHAPTER III</div>
+    <h2 class="ch-title r" style="--i:8">Ownership</h2>
+    <div class="ch-line r" style="--i:9">Four generations of family control, and the path to a partnership.</div>
+  </div>
+  <div class="ch-list r" style="--i:10"><span>Ownership and governance</span><span>Path to control</span></div>
+</section>
+<section class="slide content "><div class="chrome-top"><span>AUDEMARS PIGUET</span><span>OWNERSHIP</span></div><div class="chrome-bot"><span class="src">Source: company and press reporting on governance; proposed structure is the deal team's.</span><span class="pg">11 / 35</span></div><h2 class="ttl r" style="--i:0">Ownership breakdown: today and post-transaction</h2>
+<div class="own">
+  <div class="own-col r" style="--i:1">
+    <div class="lbl">TODAY</div>
+    <div class="own-bar"><div class="seg fam" style="width:100%"><span>Founding families (Audemars and Piguet descendants)</span></div></div>
+    <ul class="ticks">
+      <li>Held privately since 1875. Individual stakes are not disclosed.</li>
+      <li>One editorial reports a third long-term shareholder group (the Bottinelli family) holding shares acquired from a former CEO. Unverified; to be confirmed in diligence.</li>
+      <li>Non-family chairman since 2022 (Alessandro Bogliolo); family represented by vice-chairman Olivier Audemars.</li>
+    </ul>
+  </div>
+  <div class="own-col r" style="--i:2">
+    <div class="lbl">PROPOSED AT CLOSE (EQUITY)</div>
+    <div class="own-bar"><div class="seg sp" style="width:70%"><span>Sponsor 70%</span></div><div class="seg fam" style="width:30%"><span>Families 30%</span></div></div>
+    <div class="own-nums">
+      <div><b>CHF 7.9bn</b><span>Sponsor equity</span></div>
+      <div><b>CHF 3.4bn</b><span>Family rollover</span></div>
+      <div><b>CHF 7.9bn</b><span>Cash to selling holders</span></div>
+    </div>
+    <div class="board">
+      <div class="lbl">PROPOSED BOARD (9 SEATS)</div>
+      <div class="seats"><i class="s"></i><i class="s"></i><i class="s"></i><i class="s"></i><i class="f"></i><i class="f"></i><i class="n"></i><i class="n"></i><i class="m"></i></div>
+      <div class="legend"><span><i class="s"></i>Sponsor 4</span><span><i class="f"></i>Family 2</span><span><i class="n"></i>Independent 2</span><span><i class="m"></i>CEO 1</span></div>
+    </div>
+  </div>
+</div></section>
+<section class="slide content "><div class="chrome-top"><span>AUDEMARS PIGUET</span><span>OWNERSHIP</span></div><div class="chrome-bot"><span class="src">Source: deal-team proposal. Breitling: WatchPro, National Jeweler, S&P Global (2026).</span><span class="pg">12 / 35</span></div><h2 class="ttl r" style="--i:0">Path to control: winning the families, not just the auction</h2>
+<div class="path">
+  <div class="p-left">
+    <div class="lbl r" style="--i:1">WHAT THE FAMILIES WILL TEST</div>
+    <div class="qa r" style="--i:2"><b>Independence</b><p>AP's identity rests on being the last family-owned Trinity house.</p></div>
+    <div class="qa r" style="--i:3"><b>Le Brassus</b><p>Jobs, manufacturing and the Vallée de Joux community.</p></div>
+    <div class="qa r" style="--i:4"><b>Long-term brand stewardship</b><p>Fear of volume push or a return to wholesale. Breitling's 2026 write-down shows the risk of over-levered watch LBOs.</p></div>
+  </div>
+  <div class="p-right">
+    <div class="lbl r" style="--i:5">OUR PROPOSED COMMITMENTS</div>
+    <div class="commit r" style="--i:6"><em>A</em><p><b>30% family rollover</b> with tag-along, a pre-emption right at exit and a family vice-chair.</p></div>
+    <div class="commit r" style="--i:7"><em>B</em><p><b>Brand charter</b>: head office and manufacturing stay in Le Brassus; no return to wholesale; production cap reviewed only by the board.</p></div>
+    <div class="commit r" style="--i:8"><em>C</em><p><b>Conservative capital structure</b>: 6.0x at entry, below 3.1x by FY2029, no dividend recaps in the first three years.</p></div>
+    <div class="commit r" style="--i:9"><em>D</em><p><b>Management continuity</b>: Ilaria Resta and the leadership team stay, with a 10% management incentive pool.</p></div>
+  </div>
+</div></section>
+<section class="slide chapter">
+  <div class="frame"><img src="assets/lbv3-ro-collection-cc6180.jpg" alt="" style="object-position:50% 50%"></div>
+  <div class="bar t"></div><div class="bar b"></div>
+  <div class="ch-top r" style="--i:6"><span>AUDEMARS PIGUET</span><span>PROJECT OCTAGON</span></div>
+  <div class="ch-text">
+    <div class="ch-num r" style="--i:7">CHAPTER IV</div>
+    <h2 class="ch-title r" style="--i:8">Collections</h2>
+    <div class="ch-line r" style="--i:9">One icon, four supporting families, and a careful widening of the base.</div>
+  </div>
+  <div class="ch-list r" style="--i:10"><span>Key models</span><span>Collection mix</span></div>
+</section>
+<section class="slide content "><div class="chrome-top"><span>AUDEMARS PIGUET</span><span>COLLECTIONS</span></div><div class="chrome-bot"><span class="src">Source: Audemars Piguet (product imagery and pricing); deal-team characterisation.</span><span class="pg">14 / 35</span></div><h2 class="ttl r" style="--i:0">Key models</h2><div class="models"><div class="model r" style="--i:1"><div class="m-img"><img src="assets/standup-1038-ecc694.png" alt="Royal Oak"></div>
+  <div class="m-y">1972</div><h3>Royal Oak</h3><p>The core. Octagonal bezel, Tapisserie dial, integrated bracelet. Royal Oak Selfwinding 15510ST lists at USD 33,900.</p><div class="m-role">Volume and margin engine</div></div><div class="model r" style="--i:2"><div class="m-img"><img src="assets/standup-835-88c587.png" alt="Royal Oak Offshore"></div>
+  <div class="m-y">1993</div><h3>Royal Oak Offshore</h3><p>Larger, sportier sibling, introduced by Emmanuel Gueit. Chronographs in steel, ceramic and gold.</p><div class="m-role">Younger clients, bold materials</div></div><div class="model r" style="--i:3"><div class="m-img"><img src="assets/standup-833-43acfa.png" alt="Royal Oak Concept"></div>
+  <div class="m-y">2002</div><h3>Royal Oak Concept</h3><p>The experimental platform: flying tourbillons, carbon and titanium.</p><div class="m-role">Halo and complications</div></div><div class="model r" style="--i:4"><div class="m-img"><img src="assets/standup-1126-6a559b.png" alt="Code 11.59"></div>
+  <div class="m-y">2019</div><h3>Code 11.59</h3><p>Round, multi-layered case. The first new collection in decades, now gaining traction.</p><div class="m-role">Diversification away from Royal Oak</div></div><div class="model r" style="--i:5"><div class="m-img"><img src="assets/standup-1335-7d5bbe.png" alt="150 Heritage"></div>
+  <div class="m-y">2025</div><h3>150 Heritage</h3><p>Anniversary pieces drawing on 19th-century pocket-watch complications.</p><div class="m-role">Heritage and pricing power</div></div></div></section>
+<section class="slide content "><div class="chrome-top"><span>AUDEMARS PIGUET</span><span>COLLECTIONS</span></div><div class="chrome-bot"><span class="src">Source: deal-team estimates (illustrative).</span><span class="pg">15 / 35</span></div><h2 class="ttl r" style="--i:0">Collection mix: concentration is the strength and the risk</h2>
+<div class="split">
+  <div class="col-l">
+    <div class="lbl r" style="--i:1">ESTIMATED REVENUE MIX, FY2025 (ILLUSTRATIVE)</div>
+    <div class="hbars"><div class="hb r" style="--i:1"><span class="hb-l">Royal Oak</span><div class="hb-t"><div class="hb-f acc" style="width:100%"></div></div><b>62%</b></div><div class="hb r" style="--i:2"><span class="hb-l">Royal Oak Offshore</span><div class="hb-t"><div class="hb-f" style="width:29%"></div></div><b>18%</b></div><div class="hb r" style="--i:3"><span class="hb-l">Code 11.59</span><div class="hb-t"><div class="hb-f" style="width:16%"></div></div><b>10%</b></div><div class="hb r" style="--i:4"><span class="hb-l">High complications and jewellery</span><div class="hb-t"><div class="hb-f" style="width:10%"></div></div><b>6%</b></div><div class="hb r" style="--i:5"><span class="hb-l">Royal Oak Concept</span><div class="hb-t"><div class="hb-f" style="width:6%"></div></div><b>4%</b></div></div>
+    <p class="note r" style="--i:7">AP does not disclose collection sales. This split is a deal-team estimate for diligence and must be validated against boutique sell-out data.</p>
+  </div>
+  <div class="col-r stack">
+    <div class="callout r" style="--i:3"><b>~84%</b><p>Estimated share of the Royal Oak family (Royal Oak, Offshore, Concept). One design drives most of the value.</p></div>
+    <div class="callout r" style="--i:4"><b>Upside</b><p>Code 11.59 maturing and the 150th-anniversary complications give a second leg, supporting mix-led price growth of 4-5% a year.</p></div>
+    <div class="callout r" style="--i:5"><b>Risk</b><p>A fashion cycle turning against integrated-bracelet sports watches would hit volumes and secondary prices together.</p></div>
+  </div>
+</div></section>
+<section class="slide chapter">
+  <div class="frame"><img src="assets/ro-15510st-oo-1320st-01-closeup-facelift-i6-tif-87ae2d.jpg" alt="" style="object-position:50% 50%"></div>
+  <div class="bar t"></div><div class="bar b"></div>
+  <div class="ch-top r" style="--i:6"><span>AUDEMARS PIGUET</span><span>PROJECT OCTAGON</span></div>
+  <div class="ch-text">
+    <div class="ch-num r" style="--i:7">CHAPTER V</div>
+    <h2 class="ch-title r" style="--i:8">Financial Situation</h2>
+    <div class="ch-line r" style="--i:9">Private, unaudited by us, and still among the most profitable brands in the industry.</div>
+  </div>
+  <div class="ch-list r" style="--i:10"><span>Market position</span><span>Revenue trajectory</span><span>Margins and cash</span><span>Market context</span></div>
+</section>
+<section class="slide content "><div class="chrome-top"><span>AUDEMARS PIGUET</span><span>FINANCIAL SITUATION</span></div><div class="chrome-bot"><span class="src">Source: Morgan Stanley x LuxeConsult, Ninth Annual Swiss Watch Report (2026), via Revolution and Professional Watches. Estimates disputed by some brands.</span><span class="pg">17 / 35</span></div><h2 class="ttl r" style="--i:0">Market position: number three in Switzerland in 2025</h2>
+<div class="split wide-l">
+  <div class="col-l">
+    <div class="lbl r" style="--i:1">ESTIMATED 2025 TURNOVER, CHF BN</div>
+    <div class="vbars"><div class="vb r" style="--i:1"><b>11.0</b><div class="vb-bar" style="height:540px"></div><span>Rolex</span></div><div class="vb r" style="--i:2"><b>3.5</b><div class="vb-bar" style="height:172px"></div><span>Cartier</span></div><div class="vb r" style="--i:3"><b>2.6</b><div class="vb-bar acc" style="height:128px"></div><span>Audemars Piguet</span></div><div class="vb r" style="--i:4"><b>2.5</b><div class="vb-bar" style="height:123px"></div><span>Patek Philippe</span></div><div class="vb r" style="--i:5"><b>2.2</b><div class="vb-bar" style="height:108px"></div><span>Omega</span></div></div>
+  </div>
+  <div class="col-r stack">
+    <div class="callout r" style="--i:6"><b>6%</b><p>AP's estimated share of Swiss watch retail value, up from fourth place in 2024.</p></div>
+    <div class="callout r" style="--i:7"><b>~33%</b><p>Aggregate operating margin of the four largest private brands (Rolex, Patek, AP, Richard Mille), which take about 76% of the industry profit pool.</p></div>
+    <div class="callout r" style="--i:8"><b>22%</b><p>Industry-wide brand-level operating margin, for comparison.</p></div>
+  </div>
+</div></section>
+<section class="slide content "><div class="chrome-top"><span>AUDEMARS PIGUET</span><span>FINANCIAL SITUATION</span></div><div class="chrome-bot"><span class="src">Source: Morgan Stanley x LuxeConsult (2024-2025); company statements; deal-team estimates and plan.</span><span class="pg">18 / 35</span></div><h2 class="ttl r" style="--i:0">Revenue trajectory: estimates, then our sponsor plan</h2>
+<div class="split wide-l">
+  <div class="col-l">
+    <div class="lbl r" style="--i:1">REVENUE, CHF BN</div>
+    <div class="vbars rev"><div class="vb est r" style="--i:1"><b>2.38</b><div class="vb-bar" style="height:279px"></div><span>2024</span></div><div class="vb est r" style="--i:2"><b>2.60</b><div class="vb-bar" style="height:305px"></div><span>2025</span></div><div class="vb e r" style="--i:3"><b>2.76</b><div class="vb-bar" style="height:323px"></div><span>2026E</span></div><div class="vb p r" style="--i:4"><b>2.98</b><div class="vb-bar" style="height:349px"></div><span>2027P</span></div><div class="vb p r" style="--i:5"><b>3.21</b><div class="vb-bar" style="height:377px"></div><span>2028P</span></div><div class="vb p r" style="--i:6"><b>3.47</b><div class="vb-bar" style="height:407px"></div><span>2029P</span></div><div class="vb p r" style="--i:7"><b>3.73</b><div class="vb-bar" style="height:437px"></div><span>2030P</span></div><div class="vb p r" style="--i:8"><b>4.01</b><div class="vb-bar" style="height:470px"></div><span>2031P</span></div></div>
+    <div class="legend2 r" style="--i:12"><span><i class="est"></i>Third-party estimate</span><span><i class="e"></i>Deal-team estimate</span><span><i class="p"></i>Sponsor plan</span></div>
+  </div>
+  <div class="col-r stack">
+    <div class="callout r" style="--i:4"><b>7.8%</b><p>Revenue CAGR FY2026E-FY2031 in the sponsor plan: about 2-3% volume and 5% price and mix.</p></div>
+    <div class="callout r" style="--i:5"><b>+9-10%</b><p>2025 growth during the 150th anniversary, despite the industry falling 1.7%.</p></div>
+    <div class="callout r" style="--i:6"><b>+6%</b><p>FY2026E growth assumed, reflecting US tariffs and weak China demand.</p></div>
+  </div>
+</div></section>
+<section class="slide content "><div class="chrome-top"><span>AUDEMARS PIGUET</span><span>FINANCIAL SITUATION</span></div><div class="chrome-bot"><span class="src">Sponsor plan. Margin, capex and working-capital levels are deal-team assumptions pending a quality-of-earnings review.</span><span class="pg">19 / 35</span></div><h2 class="ttl r" style="--i:0">Margins and cash: a 35% EBITDA business that funds its own growth</h2>
+<div class="split">
+  <div class="col-l">
+    <table class="fin r" style="--i:1">
+      <thead><tr><th>CHF m</th><th>FY26E</th><th>FY27P</th><th>FY28P</th><th>FY29P</th><th>FY30P</th><th>FY31P</th></tr></thead>
+      <tbody>
+        <tr><td>Revenue</td><td>2,756</td><td>2,976</td><td>3,215</td><td>3,472</td><td>3,732</td><td>4,012</td></tr>
+        <tr class="sub"><td>Growth</td><td>6.0%</td><td>8.0%</td><td>8.0%</td><td>8.0%</td><td>7.5%</td><td>7.5%</td></tr>
+        <tr class="b"><td>EBITDA</td><td>965</td><td>1,060</td><td>1,164</td><td>1,278</td><td>1,396</td><td>1,525</td></tr>
+        <tr class="sub"><td>Margin</td><td>35.0%</td><td>35.6%</td><td>36.2%</td><td>36.8%</td><td>37.4%</td><td>38.0%</td></tr>
+        <tr><td>Capex</td><td></td><td>(193)</td><td>(193)</td><td>(174)</td><td>(187)</td><td>(201)</td></tr>
+        <tr><td>Change in working capital</td><td></td><td>(55)</td><td>(60)</td><td>(64)</td><td>(65)</td><td>(70)</td></tr>
+        <tr><td>Cash interest and tax</td><td></td><td>(323)</td><td>(322)</td><td>(321)</td><td>(316)</td><td>(310)</td></tr>
+        <tr class="b acc"><td>Levered free cash flow</td><td></td><td>488</td><td>589</td><td>719</td><td>828</td><td>944</td></tr>
+        <tr class="sub"><td>FCF / EBITDA</td><td></td><td>46%</td><td>51%</td><td>56%</td><td>59%</td><td>62%</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <div class="col-r stack">
+    <div class="callout r" style="--i:2"><b>35%</b><p>Entry EBITDA margin assumed: consistent with the ~33% operating margin of the top private brands plus D&amp;A, and AP's ~90% direct retail.</p></div>
+    <div class="callout r" style="--i:3"><b>6.5% to 5%</b><p>Capex as a share of revenue, front-loaded for new Le Brassus and Meyrin case and bracelet capacity.</p></div>
+    <div class="callout r" style="--i:4"><b>25%</b><p>Working capital of revenue, conservative for a scarcity brand with low dealer stock.</p></div>
+  </div>
+</div></section>
+<section class="slide content "><div class="chrome-top"><span>AUDEMARS PIGUET</span><span>FINANCIAL SITUATION</span></div><div class="chrome-bot"><span class="src">Source: Federation of the Swiss Watch Industry via FashionUnited and Bloomberg; Deloitte Swiss Watch Industry Study 2025; WatchCharts; Wristcheck.</span><span class="pg">20 / 35</span></div><h2 class="ttl r" style="--i:0">Market context: a soft industry, a resilient top tier</h2>
+<div class="ctx">
+  <div class="ctx-c r" style="--i:1"><b>-1.7%</b><h3>Swiss watch exports, 2025</h3><p>CHF 25.6bn, a second straight annual decline.</p></div>
+  <div class="ctx-c r" style="--i:2"><b>-12.1%</b><h3>Exports to China, 2025</h3><p>The largest drag, after a strong 2021-2023.</p></div>
+  <div class="ctx-c r" style="--i:3"><b>39%</b><h3>US tariff, Aug 2025</h3><p>Later reduced; US exports rebounded 19.2% in December. Top brands can pass most of it on.</p></div>
+  <div class="ctx-c hi r" style="--i:4"><b>+36%</b><h3>Royal Oak premium to retail</h3><p>Reported Q2 2026 secondary-market premium. Prices recovered through 2026 after the 2022-2024 correction.</p></div>
+</div>
+<div class="ctx-read r" style="--i:5"><span class="lbl">READ-ACROSS</span><p>The market is polarising. Volume brands are losing share, while scarcity brands with controlled distribution keep pricing power. AP sits firmly in the second group, but its 2026 plan must absorb tariffs and a weaker China.</p></div>
+</section>
+<section class="slide chapter">
+  <div class="frame"><img src="assets/ro-15510st-oo-1320st-01-closeup-facelift-i6-tif-2e8966.jpg" alt="" style="object-position:50% 50%"></div>
+  <div class="bar t"></div><div class="bar b"></div>
+  <div class="ch-top r" style="--i:6"><span>AUDEMARS PIGUET</span><span>PROJECT OCTAGON</span></div>
+  <div class="ch-text">
+    <div class="ch-num r" style="--i:7">CHAPTER VI</div>
+    <h2 class="ch-title r" style="--i:8">The Buyout</h2>
+    <div class="ch-line r" style="--i:9">A full leveraged buyout analysis, with returns stress-tested.</div>
+  </div>
+  <div class="ch-list r" style="--i:10"><span>Valuation</span><span>Sources and uses</span><span>Operating plan</span><span>Debt schedule</span><span>Returns</span><span>Sensitivities</span><span>Walk-away price</span></div>
+</section>
+<section class="slide content "><div class="chrome-top"><span>AUDEMARS PIGUET</span><span>THE BUYOUT</span></div><div class="chrome-bot"><span class="src">Source: Alphaspread, multiples.vc, Marketscreener (Sep-Nov 2026; mixed trailing and forward bases); Bloomberg, WatchPro (Breitling). Ferrari and Breitling 2017 multiples are low-reliability.</span><span class="pg">22 / 35</span></div><h2 class="ttl r" style="--i:0">Valuation: a scarcity premium, but not the seller's price</h2>
+<div class="split wide-l">
+  <div class="col-l">
+    <div class="lbl r" style="--i:1">EV / EBITDA, LTM OR CURRENT</div>
+    <div class="hbars comps"><div class="hb trading r" style="--i:1"><span class="hb-l">Ferrari</span><div class="hb-t"><div class="hb-f" style="width:97%"></div></div><b>23.3x</b></div><div class="hb trading r" style="--i:2"><span class="hb-l">Hermès</span><div class="hb-t"><div class="hb-f" style="width:88%"></div></div><b>21.2x</b></div><div class="hb ask r" style="--i:3"><span class="hb-l">Seller ask</span><div class="hb-t"><div class="hb-f" style="width:83%"></div></div><b>20.0x</b></div><div class="hb deal r" style="--i:4"><span class="hb-l">Breitling 2022 (CHF 4.2bn)</span><div class="hb-t"><div class="hb-f" style="width:83%"></div></div><b>20.0x</b></div><div class="hb bid r" style="--i:5"><span class="hb-l">Project Octagon bid</span><div class="hb-t"><div class="hb-f" style="width:71%"></div></div><b>17.0x</b></div><div class="hb trading r" style="--i:6"><span class="hb-l">Richemont</span><div class="hb-t"><div class="hb-f" style="width:67%"></div></div><b>16.0x</b></div><div class="hb deal r" style="--i:7"><span class="hb-l">Breitling 2017 (CVC)</span><div class="hb-t"><div class="hb-f" style="width:45%"></div></div><b>10.7x</b></div><div class="hb trading r" style="--i:8"><span class="hb-l">LVMH</span><div class="hb-t"><div class="hb-f" style="width:41%"></div></div><b>9.9x</b></div></div>
+    <div class="legend2 r" style="--i:10"><span><i class="tr"></i>Listed luxury</span><span><i class="dl"></i>Watch precedents</span><span><i class="bd"></i>Our bid</span></div>
+  </div>
+  <div class="col-r stack">
+    <div class="callout r" style="--i:3"><b>17.0x</b><p>Our bid: a premium to Richemont for scarcity, control and AP's margin, but below Hermès-style multiples AP has not earned as a single-category brand.</p></div>
+    <div class="callout r" style="--i:4"><b>CHF 16.4bn</b><p>Implied enterprise value, 5.9x FY2026E revenue.</p></div>
+    <div class="callout r" style="--i:5"><b>Caution</b><p>Breitling went from about 10.7x (2017) to a CHF 4.2bn valuation (2022), then a reported write-down of about half by 2026.</p></div>
+  </div>
+</div></section>
+<section class="slide content "><div class="chrome-top"><span>AUDEMARS PIGUET</span><span>THE BUYOUT</span></div><div class="chrome-bot"><span class="src">Entry on FY2026E EBITDA of CHF 965m at 17.0x. Pricing indicative; subject to financing commitments.</span><span class="pg">23 / 35</span></div><h2 class="ttl r" style="--i:0">Sources and uses at close (CHF m)</h2>
+<div class="su">
+  <div class="r" style="--i:1"><div class="lbl">SOURCES</div>
+    <table class="tbl su-t"><thead><tr><th></th><th>x EBITDA</th><th>CHF m</th><th>%</th></tr></thead><tbody><tr><td>Senior term loan B<em>SARON (0% floor) + 400bp, 7-year, 1% amortisation, 75% cash sweep</em></td><td>4.5x</td><td>4,341</td><td>25%</td></tr><tr><td>Senior secured notes<em>5.75% fixed, 8-year, non-call 3</em></td><td>1.0x</td><td>965</td><td>6%</td></tr><tr><td>HoldCo PIK notes<em>9.0% accruing, structurally subordinated</em></td><td>0.5x</td><td>482</td><td>3%</td></tr><tr><td>Sponsor equity<em>70% of equity</em></td><td></td><td>7,876</td><td>46%</td></tr><tr><td>Family rollover equity<em>30% of equity, same instrument</em></td><td></td><td>3,375</td><td>20%</td></tr>
+    <tr class="tot"><td>Total sources</td><td>6.0x debt</td><td>17,039</td><td>100%</td></tr></tbody></table></div>
+  <div class="r" style="--i:2"><div class="lbl">USES</div>
+    <table class="tbl su-t"><thead><tr><th></th><th>CHF m</th><th>%</th></tr></thead><tbody><tr><td>Purchase of enterprise value</td><td>16,398</td><td>96%</td></tr><tr><td>Transaction fees (1.5% of EV)</td><td>246</td><td>1%</td></tr><tr><td>Financing fees (2.5% of debt)</td><td>145</td><td>1%</td></tr><tr><td>Cash to balance sheet</td><td>250</td><td>1%</td></tr>
+    <tr class="tot"><td>Total uses</td><td>17,039</td><td>100%</td></tr></tbody></table>
+    <div class="cap-bar r" style="--i:4">
+      <div style="flex:4341" class="c1"><span>TLB</span></div><div style="flex:965" class="c2" title="Senior notes"></div><div style="flex:482" class="c3" title="PIK notes"></div><div style="flex:11251" class="c4"><span>Equity 66%</span></div>
+    </div>
+    <div class="legend2 cap-leg"><span><i class="p"></i>TLB</span><span><i style="background:rgba(147,171,224,.45)"></i>Senior notes</span><span><i style="background:rgba(147,171,224,.22)"></i>PIK</span><span><i class="e"></i>Equity</span></div>
+    <p class="note">The Swiss rate backdrop helps: SNB policy rate 0% since June 2025, SARON slightly negative (floored at 0% in the TLB).</p>
+  </div>
+</div></section>
+<section class="slide content "><div class="chrome-top"><span>AUDEMARS PIGUET</span><span>THE BUYOUT</span></div><div class="chrome-bot"><span class="src">Deal-team plan and scenarios.</span><span class="pg">24 / 35</span></div><h2 class="ttl r" style="--i:0">Operating plan: value creation without volume-chasing</h2>
+<div class="split">
+  <div class="col-l">
+    <div class="lbl r" style="--i:1">VALUE-CREATION LEVERS (SPONSOR PLAN)</div>
+    <div class="levers"><div class="lever r" style="--i:2"><div><b>Price and mix</b><span>+4-5% a year</span></div><p>Annual list-price increases, more complications and precious-metal mix.</p></div><div class="lever r" style="--i:3"><div><b>Volume</b><span>+2-3% a year</span></div><p>From about 53k to about 60k watches by FY2031, within new capacity.</p></div><div class="lever r" style="--i:4"><div><b>AP House roll-out</b><span>25 to 35</span></div><p>Higher-productivity client spaces in under-served cities.</p></div><div class="lever r" style="--i:5"><div><b>Certified pre-owned</b><span>New revenue</span></div><p>Capture value AP currently leaves to the secondary market.</p></div><div class="lever r" style="--i:6"><div><b>Operating leverage</b><span>+300bp margin</span></div><p>35.0% to 38.0% EBITDA margin through retail productivity and procurement.</p></div></div>
+  </div>
+  <div class="col-r">
+    <table class="cmp r" style="--i:3">
+      <thead><tr><th>FY2031</th><th>Bear</th><th>Base</th><th class="acc">Sponsor</th><th>Bull</th></tr></thead>
+      <tbody>
+        <tr><td>Revenue CAGR</td><td>1.8%</td><td>6.6%</td><td class=acc>7.8%</td><td>8.5%</td></tr>
+        <tr><td>Revenue (CHF m)</td><td>3,012</td><td>3,793</td><td class=acc>4,012</td><td>4,144</td></tr>
+        <tr><td>EBITDA margin</td><td>31.0%</td><td>36.5%</td><td class=acc>38.0%</td><td>38.0%</td></tr>
+        <tr><td>EBITDA (CHF m)</td><td>934</td><td>1,385</td><td class=acc>1,525</td><td>1,575</td></tr>
+        <tr><td>Exit multiple</td><td>15.0x</td><td>18.0x</td><td class="acc">18.0x</td><td>21.0x</td></tr>
+      </tbody>
+    </table>
+    <p class="note r" style="--i:4">Base case: steady-state growth of 7.5% falling to 6%, margin to 36.5%. Bear: near-zero growth and margin falling to 31%.</p>
+  </div>
+</div></section>
+<section class="slide content "><div class="chrome-top"><span>AUDEMARS PIGUET</span><span>THE BUYOUT</span></div><div class="chrome-bot"><span class="src">Senior notes (CHF 965m) bullet at maturity. PIK accrues at 9.0%.</span><span class="pg">25 / 35</span></div><h2 class="ttl r" style="--i:0">Debt schedule: from 6.0x to 1.5x net leverage in five years</h2>
+<div class="split wide-l">
+  <div class="col-l r" style="--i:1">
+    <div class="lbl">NET DEBT (CHF M) AND NET DEBT / EBITDA, SPONSOR PLAN</div>
+    <svg class="chart" viewBox="0 0 1000 470"><rect class="sb" x="121" y="60" width="90" height="330" style="--i:1"/><text class="sv" x="166" y="46">5,538</text><text class="sx" x="166" y="420">Close</text><text class="sll" x="166" y="454" text-anchor="middle">6.0x</text><rect class="sb" x="272" y="87" width="90" height="303" style="--i:2"/><text class="sv" x="318" y="73">5,093</text><text class="sx" x="318" y="420">FY27</text><text class="sll" x="318" y="454" text-anchor="middle">4.8x</text><rect class="sb" x="424" y="119" width="90" height="271" style="--i:3"/><text class="sv" x="469" y="105">4,551</text><text class="sx" x="469" y="420">FY28</text><text class="sll" x="469" y="454" text-anchor="middle">3.9x</text><rect class="sb" x="576" y="159" width="90" height="231" style="--i:4"/><text class="sv" x="621" y="145">3,883</text><text class="sx" x="621" y="420">FY29</text><text class="sll" x="621" y="454" text-anchor="middle">3.0x</text><rect class="sb" x="728" y="205" width="90" height="185" style="--i:5"/><text class="sv" x="772" y="191">3,112</text><text class="sx" x="772" y="420">FY30</text><text class="sll" x="772" y="454" text-anchor="middle">2.2x</text><rect class="sb" x="879" y="257" width="90" height="133" style="--i:6"/><text class="sv" x="924" y="243">2,229</text><text class="sx" x="924" y="420">FY31</text><text class="sll" x="924" y="454" text-anchor="middle">1.5x</text><text class="sx" x="0" y="420" text-anchor="start">Year</text><text class="sll" x="0" y="454">Net lev.</text></svg>
+  </div>
+  <div class="col-r">
+    <table class="tbl small r" style="--i:3"><thead><tr><th></th><th>TLB</th><th>PIK</th><th>Repaid</th><th>EBITDA / int.</th></tr></thead><tbody><tr><td>FY27</td><td>3,964</td><td>526</td><td>377</td><td>4.6x</td></tr><tr><td>FY28</td><td>3,511</td><td>573</td><td>453</td><td>5.4x</td></tr><tr><td>FY29</td><td>2,961</td><td>625</td><td>550</td><td>6.5x</td></tr><tr><td>FY30</td><td>2,329</td><td>681</td><td>632</td><td>8.0x</td></tr><tr><td>FY31</td><td>1,610</td><td>742</td><td>719</td><td>10.3x</td></tr></tbody></table>
+    <div class="callout r" style="--i:4"><b>2,730</b><p>CHF m of term loan repaid from cash flow over the hold, 63% of the TLB.</p></div>
+    <p class="note r" style="--i:5">Covenant-lite TLB with a springing 7.5x net leverage test on the revolver. Bear-case peak leverage is 5.67x.</p>
+  </div>
+</div></section>
+<section class="slide content "><div class="chrome-top"><span>AUDEMARS PIGUET</span><span>THE BUYOUT</span></div><div class="chrome-bot"><span class="src">Equity returns to all holders pro rata (sponsor and family on identical terms). Exit at end-FY2031.</span><span class="pg">26 / 35</span></div><h2 class="ttl r" style="--i:0">Returns: 14.8% in the base case, 17.5% with the sponsor plan</h2>
+<div class="scns"><div class="scn r" style="--i:2"><div class="lbl">BEAR</div><b>-1.4%</b><span>0.93x MOIC</span></div><div class="scn r" style="--i:3"><div class="lbl">BASE</div><b>14.8%</b><span>2.00x MOIC</span></div><div class="scn hi r" style="--i:4"><div class="lbl">SPONSOR</div><b>17.5%</b><span>2.24x MOIC</span></div><div class="scn r" style="--i:5"><div class="lbl">BULL</div><b>22.4%</b><span>2.75x MOIC</span></div><div class="scn ask r" style="--i:6"><div class="lbl">AT 20X ASK</div><b>9.5%</b><span>1.57x MOIC</span></div></div>
+<div class="wf-wrap r" style="--i:7"><div class="lbl">SPONSOR-PLAN EQUITY VALUE BRIDGE, CHF M (100% OF EQUITY)</div><svg class="chart" viewBox="0 0 1040 430"><rect class="wf base" x="27" y="231" width="120" height="149" style="--i:1"/><text class="sv" x="87" y="217">11,251</text><text class="sx" x="87" y="416">Entry equity</text><rect class="wf up" x="200" y="105" width="120" height="126" style="--i:2"/><text class="sv" x="260" y="91">+9,520</text><text class="sx" x="260" y="416">EBITDA growth</text><rect class="wf up" x="373" y="85" width="120" height="20" style="--i:3"/><text class="sv" x="433" y="71">+1,525</text><text class="sx" x="433" y="416">Multiple 17x to 18x</text><rect class="wf up" x="547" y="42" width="120" height="44" style="--i:4"/><text class="sv" x="607" y="28">+3,308</text><text class="sx" x="607" y="416">Debt paydown</text><rect class="wf down" x="720" y="42" width="120" height="5" style="--i:5"/><text class="sv" x="780" y="28">-391</text><text class="sx" x="780" y="416">Fees</text><rect class="wf base" x="893" y="47" width="120" height="333" style="--i:6"/><text class="sv" x="953" y="33">25,213</text><text class="sx" x="953" y="416">Exit equity</text></svg></div>
+<div class="wf-side r" style="--i:8">
+  <div><b>68%</b><span>of value created comes from EBITDA growth</span></div>
+  <div><b>24%</b><span>from debt paydown</span></div>
+  <div><b>11%</b><span>from multiple expansion, kept deliberately small</span></div>
+</div></section>
+<section class="slide content "><div class="chrome-top"><span>AUDEMARS PIGUET</span><span>THE BUYOUT</span></div><div class="chrome-bot"><span class="src">Sponsor operating plan, 6.0x leverage, five-year hold.</span><span class="pg">27 / 35</span></div><h2 class="ttl r" style="--i:0">Sensitivity: entry versus exit multiple (IRR, sponsor plan)</h2>
+<div class="split wide-l">
+  <div class="col-l r" style="--i:1"><table class="heat"><thead><tr><th class="corner"><span>ENTRY</span><span>EXIT</span></th><th>14.0x</th><th>16.0x</th><th>18.0x</th><th>20.0x</th><th>22.0x</th></tr></thead><tbody><tr><th>15.0x</th><td class="ok" style="background:rgba(147,171,224,0.39)">15.5%</td><td class="ok" style="background:rgba(147,171,224,0.49)">19.0%</td><td class="ok" style="background:rgba(147,171,224,0.59)">22.1%</td><td class="ok" style="background:rgba(147,171,224,0.68)">24.9%</td><td class="ok" style="background:rgba(147,171,224,0.68)">27.5%</td></tr><tr><th>16.0x</th><td style="background:rgba(147,171,224,0.31)">13.2%</td><td class="ok" style="background:rgba(147,171,224,0.42)">16.6%</td><td class="ok" style="background:rgba(147,171,224,0.51)">19.7%</td><td class="ok" style="background:rgba(147,171,224,0.60)">22.4%</td><td class="ok" style="background:rgba(147,171,224,0.68)">25.0%</td></tr><tr><th>17.0x</th><td style="background:rgba(147,171,224,0.25)">11.2%</td><td style="background:rgba(147,171,224,0.36)">14.5%</td><td class="mark" style="background:rgba(147,171,224,0.45)">17.5%</td><td class="ok" style="background:rgba(147,171,224,0.53)">20.2%</td><td class="ok" style="background:rgba(147,171,224,0.61)">22.7%</td></tr><tr><th>18.0x</th><td style="background:rgba(147,171,224,0.19)">9.3%</td><td style="background:rgba(147,171,224,0.30)">12.6%</td><td class="ok" style="background:rgba(147,171,224,0.39)">15.6%</td><td class="ok" style="background:rgba(147,171,224,0.47)">18.2%</td><td class="ok" style="background:rgba(147,171,224,0.55)">20.7%</td></tr><tr><th>19.0x</th><td style="background:rgba(147,171,224,0.14)">7.7%</td><td style="background:rgba(147,171,224,0.24)">10.9%</td><td style="background:rgba(147,171,224,0.33)">13.8%</td><td class="ok" style="background:rgba(147,171,224,0.41)">16.4%</td><td class="ok" style="background:rgba(147,171,224,0.49)">18.8%</td></tr><tr><th>20.0x</th><td style="background:rgba(147,171,224,0.10)">6.1%</td><td style="background:rgba(147,171,224,0.19)">9.3%</td><td style="background:rgba(147,171,224,0.28)">12.2%</td><td style="background:rgba(147,171,224,0.36)">14.8%</td><td class="ok" style="background:rgba(147,171,224,0.44)">17.2%</td></tr></tbody></table></div>
+  <div class="col-r stack">
+    <div class="callout r" style="--i:2"><b>11.2%</b><p>IRR if we buy at 17x and exit at 14x, a three-turn compression. Capital is preserved but returns fall well short.</p></div>
+    <div class="callout r" style="--i:3"><b>~2.5pt</b><p>IRR lost for each extra turn paid at entry. Price discipline matters more than any operating lever.</p></div>
+    <div class="callout r" style="--i:4"><b>Key</b><p>Outlined cells clear the 15% hurdle. The boxed cell is our base structure.</p></div>
+  </div>
+</div></section>
+<section class="slide content "><div class="chrome-top"><span>AUDEMARS PIGUET</span><span>THE BUYOUT</span></div><div class="chrome-bot"><span class="src">Growth sensitivity applies a flat CAGR with a linear margin path from 35.0%. Leverage sensitivity flexes the term loan.</span><span class="pg">28 / 35</span></div><h2 class="ttl r" style="--i:0">Sensitivity: operations and leverage (IRR)</h2>
+<div class="two-heat">
+  <div class="r" style="--i:1"><div class="lbl">REVENUE CAGR VS FY2031 EBITDA MARGIN (17.0X ENTRY, 18.0X EXIT)</div><table class="heat"><thead><tr><th class="corner"><span>CAGR</span><span>MARGIN</span></th><th>31%</th><th>33%</th><th>35%</th><th>37%</th><th>39%</th></tr></thead><tbody><tr><th>2%</th><td style="background:rgba(147,171,224,0.06)">4.0%</td><td style="background:rgba(147,171,224,0.08)">5.8%</td><td style="background:rgba(147,171,224,0.14)">7.5%</td><td style="background:rgba(147,171,224,0.19)">9.1%</td><td style="background:rgba(147,171,224,0.24)">10.7%</td></tr><tr><th>4%</th><td style="background:rgba(147,171,224,0.11)">6.7%</td><td style="background:rgba(147,171,224,0.17)">8.5%</td><td style="background:rgba(147,171,224,0.22)">10.2%</td><td style="background:rgba(147,171,224,0.27)">11.8%</td><td style="background:rgba(147,171,224,0.32)">13.3%</td></tr><tr><th>6%</th><td style="background:rgba(147,171,224,0.19)">9.3%</td><td style="background:rgba(147,171,224,0.25)">11.1%</td><td style="background:rgba(147,171,224,0.30)">12.8%</td><td style="background:rgba(147,171,224,0.35)">14.4%</td><td class="ok" style="background:rgba(147,171,224,0.40)">15.9%</td></tr><tr><th>8%</th><td style="background:rgba(147,171,224,0.27)">11.8%</td><td style="background:rgba(147,171,224,0.33)">13.7%</td><td class="mark" style="background:rgba(147,171,224,0.38)">15.4%</td><td class="ok" style="background:rgba(147,171,224,0.43)">17.0%</td><td class="ok" style="background:rgba(147,171,224,0.48)">18.5%</td></tr><tr><th>10%</th><td style="background:rgba(147,171,224,0.35)">14.4%</td><td class="ok" style="background:rgba(147,171,224,0.41)">16.2%</td><td class="ok" style="background:rgba(147,171,224,0.46)">17.9%</td><td class="ok" style="background:rgba(147,171,224,0.51)">19.5%</td><td class="ok" style="background:rgba(147,171,224,0.56)">21.0%</td></tr></tbody></table></div>
+  <div class="r" style="--i:2"><div class="lbl">TOTAL LEVERAGE VS EXIT MULTIPLE (SPONSOR PLAN)</div><table class="heat"><thead><tr><th class="corner"><span>LEVERAGE</span><span>EXIT</span></th><th>14.0x</th><th>16.0x</th><th>18.0x</th><th>20.0x</th><th>22.0x</th></tr></thead><tbody><tr><th>4.0x</th><td style="background:rgba(147,171,224,0.22)">10.3%</td><td style="background:rgba(147,171,224,0.32)">13.2%</td><td class="ok" style="background:rgba(147,171,224,0.40)">15.9%</td><td class="ok" style="background:rgba(147,171,224,0.47)">18.4%</td><td class="ok" style="background:rgba(147,171,224,0.55)">20.7%</td></tr><tr><th>5.0x</th><td style="background:rgba(147,171,224,0.24)">10.7%</td><td style="background:rgba(147,171,224,0.33)">13.8%</td><td class="ok" style="background:rgba(147,171,224,0.42)">16.7%</td><td class="ok" style="background:rgba(147,171,224,0.50)">19.3%</td><td class="ok" style="background:rgba(147,171,224,0.58)">21.6%</td></tr><tr><th>6.0x</th><td style="background:rgba(147,171,224,0.25)">11.2%</td><td style="background:rgba(147,171,224,0.36)">14.5%</td><td class="mark" style="background:rgba(147,171,224,0.45)">17.5%</td><td class="ok" style="background:rgba(147,171,224,0.53)">20.2%</td><td class="ok" style="background:rgba(147,171,224,0.61)">22.7%</td></tr><tr><th>7.0x</th><td style="background:rgba(147,171,224,0.27)">11.8%</td><td class="ok" style="background:rgba(147,171,224,0.38)">15.3%</td><td class="ok" style="background:rgba(147,171,224,0.48)">18.5%</td><td class="ok" style="background:rgba(147,171,224,0.57)">21.3%</td><td class="ok" style="background:rgba(147,171,224,0.65)">24.0%</td></tr></tbody></table>
+    <table class="tbl small mini"><thead><tr><th>Leverage</th><th>FY27 net leverage</th><th>Min. EBITDA / interest</th></tr></thead><tbody><tr><td>4.0x</td><td>2.92x</td><td>7.0x</td></tr><tr><td>5.0x</td><td>3.86x</td><td>5.6x</td></tr><tr><td>6.0x</td><td>4.81x</td><td>4.6x</td></tr><tr><td>7.0x</td><td>5.75x</td><td>4.0x</td></tr></tbody></table></div>
+</div></section>
+<section class="slide content "><div class="chrome-top"><span>AUDEMARS PIGUET</span><span>THE BUYOUT</span></div><div class="chrome-bot"><span class="src">Maximum entry multiple solved for each hurdle, holding the exit multiple at 18.0x and leverage at 6.0x.</span><span class="pg">29 / 35</span></div><h2 class="ttl r" style="--i:0">Walk-away price: the maximum multiple we can pay</h2>
+<div class="wks"><div class="wk r" style="--i:2"><div class="lbl">Base case, 15% IRR</div><b>16.9x</b><span>CHF 16.3bn</span></div><div class="wk r" style="--i:3"><div class="lbl">Base case, 20% IRR</div><b>14.7x</b><span>CHF 14.2bn</span></div><div class="wk r" style="--i:4"><div class="lbl">Sponsor plan, 15% IRR</div><b>18.3x</b><span>CHF 17.7bn</span></div><div class="wk r" style="--i:5"><div class="lbl">Sponsor plan, 20% IRR</div><b>15.9x</b><span>CHF 15.3bn</span></div></div>
+<div class="range r" style="--i:6">
+  <div class="rg-track"><div class="rg-zone" style="left:35.7%;width:25.9%"></div>
+    <div class="rg-pin" style="left:42.9%"><span>Bid 17.0x</span></div>
+    <div class="rg-pin wa" style="left:61.6%"><span>Walk away 18.3x</span></div>
+    <div class="rg-pin ask" style="left:85.7%"><span>Seller ask 20.0x</span></div>
+  </div>
+  <div class="rg-ticks"><span style="left:0.0%">14x</span><span style="left:14.3%">15x</span><span style="left:28.6%">16x</span><span style="left:42.9%">17x</span><span style="left:57.1%">18x</span><span style="left:71.4%">19x</span><span style="left:85.7%">20x</span><span style="left:100.0%">21x</span></div>
+</div>
+<p class="note wide r" style="--i:7">Bid range 16.5-17.0x to open, with authority up to 18.3x only if diligence confirms the sponsor plan. Above that, the deal depends on multiple expansion, which we will not underwrite.</p></section>
+<section class="slide chapter">
+  <div class="frame"><img src="assets/ro-15510st-oo-1320st-01-closeup-facelift-i4-tif-5417c6.jpg" alt="" style="object-position:50% 50%"></div>
+  <div class="bar t"></div><div class="bar b"></div>
+  <div class="ch-top r" style="--i:6"><span>AUDEMARS PIGUET</span><span>PROJECT OCTAGON</span></div>
+  <div class="ch-text">
+    <div class="ch-num r" style="--i:7">CHAPTER VII</div>
+    <h2 class="ch-title r" style="--i:8">Risk</h2>
+    <div class="ch-line r" style="--i:9">What could break the thesis, and how the structure protects us.</div>
+  </div>
+  <div class="ch-list r" style="--i:10"><span>Risk matrix</span><span>Risks and mitigants</span><span>Value-creation plan</span><span>Recommendation</span></div>
+</section>
+<section class="slide content "><div class="chrome-top"><span>AUDEMARS PIGUET</span><span>RISK</span></div><div class="chrome-bot"><span class="src">Deal-team assessment, scored 1 (low) to 5 (high).</span><span class="pg">31 / 35</span></div><h2 class="ttl r" style="--i:0">Risk matrix: likelihood versus impact</h2>
+<div class="split">
+  <div class="col-l r" style="--i:1"><div class="matrix-wrap"><div class="ax-y">LIKELIHOOD</div><div class="matrix"><div class="mc lo"></div><div class="mc md"></div><div class="mc hi"></div><div class="mc hi"></div><div class="mc hi"></div><div class="mc lo"></div><div class="mc lo"></div><div class="mc md"><i>5</i><i>7</i></div><div class="mc hi"></div><div class="mc hi"><i>1</i></div><div class="mc lo"></div><div class="mc lo"></div><div class="mc md"><i>6</i></div><div class="mc md"><i>3</i><i>4</i><i>9</i></div><div class="mc hi"><i>2</i></div><div class="mc lo"></div><div class="mc lo"><i>11</i></div><div class="mc lo"><i>10</i></div><div class="mc lo"><i>8</i></div><div class="mc md"></div><div class="mc lo"></div><div class="mc lo"></div><div class="mc lo"></div><div class="mc lo"></div><div class="mc lo"></div></div><div class="ax-x">IMPACT</div></div></div>
+  <div class="col-r"><div class="risk-leg"><div class="rl r" style="--i:2"><i>1</i><span>Family declines control sale</span></div><div class="rl r" style="--i:3"><i>2</i><span>Brand dilution under PE ownership</span></div><div class="rl r" style="--i:4"><i>3</i><span>Royal Oak concentration / fashion cycle</span></div><div class="rl r" style="--i:5"><i>4</i><span>Secondary-market correction</span></div><div class="rl r" style="--i:6"><i>5</i><span>China demand weakness</span></div><div class="rl r" style="--i:7"><i>6</i><span>US tariffs and trade</span></div><div class="rl r" style="--i:8"><i>7</i><span>Strong Swiss franc</span></div><div class="rl r" style="--i:9"><i>8</i><span>Talent and succession</span></div><div class="rl r" style="--i:10"><i>9</i><span>Exit multiple compression</span></div><div class="rl r" style="--i:11"><i>10</i><span>Refinancing and rates</span></div><div class="rl r" style="--i:12"><i>11</i><span>Capacity project execution</span></div></div></div>
+</div></section>
+<section class="slide content "><div class="chrome-top"><span>AUDEMARS PIGUET</span><span>RISK</span></div><div class="chrome-bot"><span class="src">Deal-team assessment.</span><span class="pg">32 / 35</span></div><h2 class="ttl r" style="--i:0">Key risks and mitigants</h2><table class="tbl risks"><thead><tr><th>Risk</th><th>Severity</th><th>Mitigation</th></tr></thead><tbody><tr class="r" style="--i:1"><td>Family declines control sale</td><td><span class="sev shig">High</span></td><td>Lead with partnership: 30% rollover, brand charter, family vice-chair. Fallback: structured minority with a path to control.</td></tr><tr class="r" style="--i:2"><td>Brand dilution under PE ownership</td><td><span class="sev shig">High</span></td><td>Charter bans a wholesale return and protects Le Brassus; production growth capped at about 2-3% a year; no dividend recap for three years.</td></tr><tr class="r" style="--i:3"><td>Royal Oak concentration</td><td><span class="sev smed">Med-high</span></td><td>Invest behind Code 11.59 and complications; bear case assumes flat volumes and falling margins.</td></tr><tr class="r" style="--i:4"><td>Secondary-market correction</td><td><span class="sev smed">Med-high</span></td><td>Certified pre-owned programme and allocation discipline support residual values.</td></tr><tr class="r" style="--i:5"><td>China weakness and US tariffs</td><td><span class="sev smed">Medium</span></td><td>Diversified footprint; pricing power to pass on tariffs; FY2026E growth already cut to 6%.</td></tr><tr class="r" style="--i:6"><td>Strong Swiss franc</td><td><span class="sev smed">Medium</span></td><td>Price in local currency, rolling 12-18 month FX hedges; Swiss cost base is a natural partial hedge.</td></tr><tr class="r" style="--i:7"><td>Exit multiple compression</td><td><span class="sev smed">Med-high</span></td><td>Underwrite an 18x exit (one turn above entry); IRR stays positive down to 14x; IPO and trade-sale routes.</td></tr><tr class="r" style="--i:8"><td>Bear case</td><td><span class="sev sdow">Downside</span></td><td>Bear case returns -1.4% / 0.93x. Leverage peaks at 5.67x, interest cover stays above 4.0x: equity is impaired but no covenant breach.</td></tr></tbody></table></section>
+<section class="slide content "><div class="chrome-top"><span>AUDEMARS PIGUET</span><span>RISK</span></div><div class="chrome-bot"><span class="src">Deal-team plan.</span><span class="pg">33 / 35</span></div><h2 class="ttl r" style="--i:0">Value-creation plan and governance</h2><div class="phases"><div class="phase r" style="--i:1"><div class="lbl">First 100 days</div><ul><li>Sign brand charter and governance agreement with the families</li><li>Launch the management incentive plan (10% pool)</li><li>Stand up monthly reporting, FX hedging and treasury</li><li>Validate the collection mix and boutique economics</li></ul></div><div class="phase r" style="--i:2"><div class="lbl">Years 1-2</div><ul><li>Open 4-5 AP Houses in under-served cities</li><li>Scale certified pre-owned</li><li>Commission new Le Brassus and Meyrin capacity</li><li>Annual price architecture review by region</li></ul></div><div class="phase r" style="--i:3"><div class="lbl">Years 3-5</div><ul><li>Reach 38% EBITDA margin</li><li>Net leverage below 2.5x and refinance</li><li>Prepare dual-track exit: IPO or strategic sale</li><li>Offer the families a pre-emption right at exit</li></ul></div></div></section>
+<section class="slide content "><div class="chrome-top"><span>AUDEMARS PIGUET</span><span>RECOMMENDATION</span></div><div class="chrome-bot"><span class="src">Deal-team recommendation.</span><span class="pg">34 / 35</span></div><h2 class="ttl r" style="--i:0">The ask of the Investment Committee</h2>
+<div class="ask-grid">
+  <div class="ask-main r" style="--i:1">
+    <div class="lbl">WE RECOMMEND</div>
+    <p class="ask-h">Approve a non-binding offer for a controlling stake in Audemars Piguet at <b>17.0x FY2026E EBITDA (CHF 16.4bn)</b>, with authority up to <b>18.3x</b> subject to diligence.</p>
+    <div class="ask-k">
+      <div><b>CHF 7.9bn</b><span>Sponsor equity</span></div>
+      <div><b>14.8%</b><span>Base IRR</span></div>
+      <div><b class="acc">17.5%</b><span>Sponsor-plan IRR</span></div>
+      <div><b>-1.4%</b><span>Bear IRR</span></div>
+    </div>
+  </div>
+  <div class="next r" style="--i:2">
+    <div class="lbl">NEXT STEPS</div>
+    <ol>
+      <li><b>Family engagement.</b> Approach via a trusted Swiss adviser with the partnership proposal before any formal bid.</li>
+      <li><b>Confirmatory diligence.</b> Quality of earnings (AP is private and unaudited by us), boutique-level economics, collection mix, secondary-market exposure.</li>
+      <li><b>Financing.</b> Secure underwritten commitments for the CHF 4,341m TLB, notes and PIK.</li>
+      <li><b>Timeline.</b> Non-binding offer Q1 2027; confirmatory diligence Q2; signing targeted H2 2027.</li>
+    </ol>
+  </div>
+</div></section>
+<section class="slide content "><div class="chrome-top"><span>AUDEMARS PIGUET</span><span>APPENDIX</span></div><div class="chrome-bot"><span class="src">Strictly confidential. For Investment Committee discussion only.</span><span class="pg">35 / 35</span></div><h2 class="ttl r" style="--i:0">Sources and methodology</h2>
+<div class="sources">
+  <div class="r" style="--i:1"><div class="lbl">METHODOLOGY</div>
+    <p>Audemars Piguet is privately held and publishes no accounts. Revenue and volume figures are third-party estimates (Morgan Stanley x LuxeConsult, Vontobel) and company statements in the press. Margins, collection mix, capital structure, projections and all returns are deal-team assumptions, set out in the accompanying model (lbo.py, deck_data.py). Figures should be confirmed through a quality-of-earnings review before any binding offer.</p>
+    <p>Imagery: Audemars Piguet official website (dynamicmedia.audemarspiguet.com). Copyright Audemars Piguet; internal use only.</p></div>
+  <div class="r" style="--i:2"><div class="lbl">KEY SOURCES</div>
+    <ul class="src-list">
+      <li>Morgan Stanley x LuxeConsult, Ninth Annual Swiss Watch Report (2026), via Revolution, Professional Watches, The Hour Markers</li>
+      <li>Luxury Society; Business of Fashion; Swissinfo / Bloomberg (Ilaria Resta, production, retail)</li>
+      <li>watchesbysjx (Vontobel estimates; AP industrial strategy)</li>
+      <li>FashionUnited, Bloomberg (Swiss watch exports 2025, US tariffs)</li>
+      <li>Deloitte Swiss Watch Industry Study 2025</li>
+      <li>WatchPro, National Jeweler, S&amp;P Global (Breitling valuation and leverage)</li>
+      <li>Alphaspread, multiples.vc, Marketscreener (listed-peer multiples)</li>
+      <li>Swiss National Bank (policy rate, SARON)</li>
+      <li>WatchCharts, Wristcheck (secondary-market prices)</li>
+      <li>Wallpaper, Revolution (Swatch x AP Royal Pop, May 2026)</li>
+    </ul></div>
+</div></section>
+</div>
+</div>
+
+<div class="deck-controls" id="controls">
+    <button id="prev" aria-label="Previous slide">&#8592;</button>
+    <span class="counter" id="counter">01 / 01</span>
+    <button id="next" aria-label="Next slide">&#8594;</button>
+</div>
+<div class="edit-hint" id="edit-hint">Edit mode: click any text. Ctrl+S saves a copy. Esc exits.</div>
+
+<script>
+/* === STAGE SCALING: 1920x1080 scaled uniformly, letterboxed === */
+(function () {
+    const stage = document.getElementById('stage');
+    function fit() {
+        const s = Math.min(innerWidth / 1920, innerHeight / 1080);
+        stage.style.transform = `translate(${(innerWidth - 1920 * s) / 2}px, ${(innerHeight - 1080 * s) / 2}px) scale(${s})`;
+    }
+    addEventListener('resize', fit);
+    fit();
+})();
+
+/* === NAVIGATION: keys, buttons, swipe, deep links (#n) === */
+(function () {
+    const slides = [...document.querySelectorAll('.slide')];
+    const counter = document.getElementById('counter');
+    const progress = document.getElementById('progress');
+    let index = Math.max(0, slides.findIndex(s => s.classList.contains('active')));
+    const pad = n => String(n).padStart(2, '0');
+
+    function update() {
+        counter.textContent = pad(index + 1) + ' / ' + pad(slides.length);
+        progress.style.width = ((index + 1) / slides.length * 100) + '%';
+        history.replaceState(null, '', '#' + (index + 1));
+    }
+    function show(i) {
+        if (i < 0 || i >= slides.length || i === index) return;
+        slides[index].classList.remove('active');
+        index = i;
+        slides[index].classList.add('active');
+        update();
+    }
+    document.getElementById('prev').onclick = () => show(index - 1);
+    document.getElementById('next').onclick = () => show(index + 1);
+    addEventListener('keydown', e => {
+        if (document.body.classList.contains('editing')) return;
+        if (['ArrowRight', 'ArrowDown', 'PageDown', ' ', 'Enter'].includes(e.key)) { e.preventDefault(); show(index + 1); }
+        if (['ArrowLeft', 'ArrowUp', 'PageUp', 'Backspace'].includes(e.key)) { e.preventDefault(); show(index - 1); }
+        if (e.key === 'Home') show(0);
+        if (e.key === 'End') show(slides.length - 1);
+    });
+    let sx = null;
+    addEventListener('touchstart', e => { sx = e.touches[0].clientX; }, { passive: true });
+    addEventListener('touchend', e => { if (sx === null) return; const dx = e.changedTouches[0].clientX - sx; if (Math.abs(dx) > 50) show(dx < 0 ? index + 1 : index - 1); sx = null; });
+
+    const start = parseInt(location.hash.slice(1), 10);
+    if (start >= 1 && start <= slides.length && start - 1 !== index) {
+        slides[index].classList.remove('active');
+        index = start - 1;
+        slides[index].classList.add('active');
+    }
+    update();
+
+    const controls = document.getElementById('controls');
+    let t;
+    function wake() { controls.classList.remove('idle'); clearTimeout(t); t = setTimeout(() => controls.classList.add('idle'), 2400); }
+    addEventListener('mousemove', wake); addEventListener('keydown', wake); wake();
+})();
+
+/* === INLINE EDITING: E toggles, Ctrl/Cmd+S downloads an edited copy === */
+(function () {
+    const hint = document.getElementById('edit-hint');
+    const sel = '.slide h1, .slide h2, .slide h3, .slide p, .slide li, .slide td, .slide th, .slide b, .slide .lbl, .slide .cv-sub, .slide .ch-line, .slide span';
+    let on = false;
+    function set(v) {
+        on = v;
+        document.body.classList.toggle('editing', v);
+        document.querySelectorAll(sel).forEach(el => el.setAttribute('contenteditable', v ? 'true' : 'false'));
+        hint.classList.toggle('show', v);
+    }
+    addEventListener('keydown', e => {
+        if ((e.key === 'e' || e.key === 'E') && !e.ctrlKey && !e.metaKey && !on) set(true);
+        else if (e.key === 'Escape' && on) set(false);
+        else if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 's' && on) {
+            e.preventDefault();
+            const c = document.documentElement.cloneNode(true);
+            c.querySelectorAll('[contenteditable]').forEach(el => el.removeAttribute('contenteditable'));
+            c.querySelector('body').classList.remove('editing');
+            const a = document.createElement('a');
+            a.href = URL.createObjectURL(new Blob(['<!DOCTYPE html>\n' + c.outerHTML], { type: 'text/html' }));
+            a.download = 'project-octagon-edited.html';
+            a.click();
+        }
+    });
+})();
+</script>
+</body>
+</html>

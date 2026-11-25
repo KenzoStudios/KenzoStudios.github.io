@@ -124,12 +124,39 @@ const PROJECTS = [
     controls: [[["←","→"],"Aim"],[["↑","↓"],"Power"],[["Space","Enter"],"Fire"],[["[","]"],"Change weapon"],[["/"],"Utilities"],[[",","."],"Drive"]]
   },
   {
+    id: "audemars-piguet-lbo", section: "presentations",
+    title: "Project Octagon", subtitle: "Audemars Piguet leveraged buyout",
+    summary: "An investment committee deck for a proposed controlling stake in Audemars Piguet, with the founding families rolling over 30%.",
+    body: "Project Octagon asks an investment committee to approve a non-binding offer for a controlling stake in Le Brassus' independent manufacture. It values the house at CHF 16.4bn (17.0x FY2026E EBITDA), funds it with CHF 5.8bn of debt and a CHF 7.9bn sponsor cheque, and leaves 30% of the equity with the founding families. The deck walks through the brand, ownership, collections, financials, valuation, returns, sensitivities and risks, and ends with the ask.",
+    tags: ["Deck", "Private equity", "HTML"],
+    cover: "presentations/audemars-piguet-lbo/shots/title.webp", coverFit: "contain", coverBg: "#000000",
+    shots: [
+      { src: "presentations/audemars-piguet-lbo/shots/title.webp",       alt: "Title slide: Project Octagon, a proposed acquisition of Audemars Piguet, over a close-up of a watch dial", cap: "Project Octagon: a proposed acquisition." },
+      { src: "presentations/audemars-piguet-lbo/shots/at-a-glance.webp", alt: "Transaction at a glance: enterprise value, debt, equity, rollover, sponsor cheque and returns", cap: "The transaction at a glance." },
+      { src: "presentations/audemars-piguet-lbo/shots/key-models.webp",  alt: "Key models: Royal Oak and related collections", cap: "Key models: concentration is the strength and the risk." },
+      { src: "presentations/audemars-piguet-lbo/shots/revenue.webp",     alt: "Revenue trajectory chart with estimates and the sponsor plan", cap: "Revenue trajectory: estimates, then the sponsor plan." },
+      { src: "presentations/audemars-piguet-lbo/shots/valuation.webp",   alt: "Valuation slide comparing multiples with a scarcity premium", cap: "Valuation: a scarcity premium, but not the seller's price." },
+      { src: "presentations/audemars-piguet-lbo/shots/returns.webp",     alt: "Returns bridge showing a 14.8% base case and 17.5% sponsor plan IRR", cap: "Returns: 14.8% in the base case, 17.5% with the sponsor plan." },
+      { src: "presentations/audemars-piguet-lbo/shots/the-ask.webp",     alt: "The ask of the Investment Committee", cap: "The ask of the Investment Committee." }
+    ],
+    facts: [
+      ["Deal", "Controlling stake with a 30% founding-family rollover"],
+      ["Price", "CHF 16.4bn enterprise value, 17.0x FY2026E EBITDA"],
+      ["Returns", "14.8% IRR base case, 17.5% IRR and 2.24x MOIC with the sponsor plan"],
+      ["Format", "35 slides in one page that runs in the browser"]
+    ],
+    actions: [
+      { label: "Open the deck", note: "About 4 MB. Use the arrow keys to move through it.", href: "presentations/audemars-piguet-lbo/", primary: true }
+    ],
+    controls: [[["→"],"Next slide"],[["←"],"Previous slide"]]
+  },
+  {
     id: "never-less-koenigsegg", section: "presentations",
     title: "Never Less.", subtitle: "A Koenigsegg strategy analysis",
     summary: "How Koenigsegg can grow to 200 cars a year without becoming less: a strategy deck for a Luxury Strategy course.",
     body: "Koenigsegg is building capacity for about 3.5 times its 2025 output. The deck weighs three ways to fill it: stay purely megacars, widen sideways, or go lower. It recommends widening sideways with Odin, an SUV built as a megacar and capped at a fifth of output, so the format changes but the excess never does.",
     tags: ["Deck", "Strategy", "HTML"],
-    cover: "presentations/never-less-koenigsegg/shots/title.webp",
+    cover: "presentations/never-less-koenigsegg/shots/title.webp", coverFit: "contain", coverBg: "#000000",
     shots: [
       { src: "presentations/never-less-koenigsegg/shots/title.webp",      alt: "Title slide: Never Less. A Koenigsegg strategy analysis, with a red Koenigsegg hypercar", cap: "Never Less. A Koenigsegg strategy analysis." },
       { src: "presentations/never-less-koenigsegg/shots/outsider.webp",   alt: "Timeline slide: the outsider that out-engineered, from 655 hp to 2,300 hp", cap: "The outsider that out-engineered: from 655 hp to 2,300 hp with no heritage to lean on." },
