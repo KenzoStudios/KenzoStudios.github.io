@@ -48,6 +48,28 @@ const PROJECTS = [
     ]
   },
   {
+    id: "inbox-heads-up", section: "agents",
+    title: "Inbox Heads-Up", subtitle: "A morning email agent",
+    summary: "Drop one file into a Claude chat and it sets up a weekday agent that triages your inbox, flags possible complaints and drafts routine replies. It never sends anything.",
+    body: "Inbox Heads-Up is a one-step setup file for a morning email agent. Give it to Claude, type \"set this up\", and Claude checks your email connection, asks a few questions, learns your writing style from your recent sent mail and creates a scheduled task that runs every weekday. Each run sorts new email into urgent, needs reply, FYI and low value, flags anything that might count as a complaint under the FCA's DISP rules, saves drafts for routine replies in your own style, and tracks who is waiting on you and who you are waiting on. It never sends, forwards or deletes, never opens links or attachments, and treats email text as information rather than instructions.",
+    tags: ["Agent", "Claude", "Scheduled task", "Email"],
+    cover: "agents/inbox-heads-up/shots/title.webp", coverFit: "contain", coverBg: "#0a0d18",
+    shots: [
+      { src: "agents/inbox-heads-up/shots/title.webp",  alt: "Inbox Heads-Up title card beside an outline of the report: possible complaints, urgent, drafts, needs your reply and follow-ups", cap: "Inbox Heads-Up: a morning email agent." },
+      { src: "agents/inbox-heads-up/shots/format.webp", alt: "Six cards describing the agent: triage, possible complaints, draft replies, follow-ups, safety rules and writing in your style", cap: "What it does each morning, and what it will never do." },
+      { src: "agents/inbox-heads-up/shots/setup.webp",  alt: "Three setup steps: connect your email, answer a few questions, it runs every weekday", cap: "One-step setup: drop it in a chat and say set this up." }
+    ],
+    facts: [
+      ["Schedule", "Monday to Friday at the time you choose, 7:30 by default, with a push notification"],
+      ["Each run", "Triage, possible complaints, draft replies, and follow-ups in both directions"],
+      ["Safety", "Drafts only. Never sends, forwards or deletes, and never opens links or attachments."],
+      ["Needs", "A paid Claude plan and Gmail or Microsoft 365 connected. Check your firm allows connecting a work mailbox."]
+    ],
+    actions: [
+      { label: "Get the agent file", note: "A single Markdown file. Drop it into a Claude chat and type set this up.", href: "agents/inbox-heads-up/inbox-heads-up.md", primary: true }
+    ]
+  },
+  {
     id: "iron-frontier", section: "games",
     title: "Iron Frontier", subtitle: "Legion Rising",
     summary: "A pixel-art roguelite run-and-gun with weapon fusions and a boss at the bottom of every zone.",
