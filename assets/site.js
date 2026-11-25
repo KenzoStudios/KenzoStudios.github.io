@@ -29,9 +29,14 @@
   if (!PAGE) $("#pills").innerHTML = SECTIONS.map(s => `<li><a href="#${s.id}">${s.name}</a></li>`).join("");
 
   /* Tiles */
-  const media = p => p.cover
-    ? `<span class="fr"><img src="${esc(U(p.cover))}" alt="" loading="lazy" width="960" height="540"></span>`
-    : `<span class="soon"></span>`;
+  /* A project can set coverFit: "contain" (and optionally coverBg: "#rrggbb") to show its whole cover
+     instead of cropping it to fill the tile. Useful for slides and posters with text near the edges. */
+  const media = p => {
+    if (!p.cover) return `<span class="soon"></span>`;
+    const contain = p.coverFit === "contain";
+    const bg = contain && /^#[0-9a-f]{3,8}$/i.test(p.coverBg || "") ? ` style="background:${p.coverBg}"` : "";
+    return `<span class="fr${contain ? " contain" : ""}"${bg}><img src="${esc(U(p.cover))}" alt="" loading="lazy" width="960" height="540"></span>`;
+  };
   const projectTile = (p, size, withSummary) =>
     `<button type="button" class="tile ${size}" data-open="${esc(p.id)}" id="${esc(p.id)}"><span class="top"><span class="n">${esc(p.title)}</span><span class="c">${esc(p.tags?.[0] || "")}</span></span>${withSummary ? `<p>${esc(p.summary)}</p>` : ""}${media(p)}${ARROW}</button>`;
   const emptyTile = (s, size, label) =>
@@ -81,7 +86,7 @@
         return `<a class="tile ${size}" href="#${s.id}" ${delay}>${head}<ul>${list}</ul>${ARROW}</a>`;
       }
       const cover = items.find(p => p.cover);
-      const m = cover ? `<span class="fr"><img src="${esc(U(cover.cover))}" alt="" loading="lazy" width="960" height="540"></span>` : `<span class="soon">In progress</span>`;
+      const m = cover ? media(cover) : `<span class="soon">In progress</span>`;
       return `<a class="tile ${size}" href="#${s.id}" ${delay}>${head}${m}${ARROW}</a>`;
     }).join("");
 
