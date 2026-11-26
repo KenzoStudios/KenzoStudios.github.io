@@ -15,8 +15,8 @@ const SITE = {
 };
 
 const SECTIONS = [
-  { id: "agents",        name: "Agents",        blurb: "AI agents built with Claude Code, each with a recording of a real run and the source.", soon: "First agents land soon, each with a recording of a real task and a link to the code." },
-  { id: "applications",  name: "Applications",  blurb: "Desktop apps for Mac and Windows, with demo videos and downloads.", soon: "Desktop apps are on their way, each with a short demo video and a download.", alias: "apps" },
+  { id: "agents",        name: "Agents",        blurb: "AI agents built with Claude Code, each with its source.", soon: "First agents land soon, each with a link to the code." },
+  { id: "applications",  name: "Applications",  blurb: "Desktop apps for Mac and Windows, with downloads.", soon: "Desktop apps are on their way, each with a download.", alias: "apps" },
   { id: "games",         name: "Games",         blurb: "Games that run in the browser. No download, no install.", soon: "More games are in production." },
   { id: "presentations", name: "Presentations", blurb: "Decks and talks you can page through in the browser.", soon: "Decks and talks are on their way." },
   { id: "skills",        name: "Skills",        blurb: "Claude skills written to automate design, writing and research work.", soon: "Skills are being written up with examples of what each one produces." },
