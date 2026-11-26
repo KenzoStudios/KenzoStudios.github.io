@@ -224,7 +224,7 @@ const PROJECTS = [
   },
   {
     id: "audemars-piguet-lbo", section: "presentations",
-    title: "Project Octagon", subtitle: "Audemars Piguet leveraged buyout",
+    title: "Audemars Piguet LBO", subtitle: "Audemars Piguet leveraged buyout",
     summary: "An investment committee deck for a proposed controlling stake in Audemars Piguet, with the founding families rolling over 30%.",
     body: "Project Octagon asks an investment committee to approve a non-binding offer for a controlling stake in Le Brassus' independent manufacture. It values the house at CHF 16.4bn (17.0x FY2026E EBITDA), funds it with CHF 5.8bn of debt and a CHF 7.9bn sponsor cheque, and leaves 30% of the equity with the founding families. The deck walks through the brand, ownership, collections, financials, valuation, returns, sensitivities and risks, and ends with the ask.",
     tags: ["Deck", "Private equity", "HTML"],
@@ -251,7 +251,7 @@ const PROJECTS = [
   },
   {
     id: "never-less-koenigsegg", section: "presentations",
-    title: "Never Less.", subtitle: "A Koenigsegg strategy analysis",
+    title: "Koenigsegg Strategy Proposal", subtitle: "A Koenigsegg strategy analysis",
     summary: "How Koenigsegg can grow to 200 cars a year without becoming less: a strategy deck for a Luxury Strategy course.",
     body: "Koenigsegg is building capacity for about 3.5 times its 2025 output. The deck weighs three ways to fill it: stay purely megacars, widen sideways, or go lower. It recommends widening sideways with Odin, an SUV built as a megacar and capped at a fifth of output, so the format changes but the excess never does.",
     tags: ["Deck", "Strategy", "HTML"],
@@ -277,7 +277,7 @@ const PROJECTS = [
   },
   {
     id: "mimsync-platform", section: "presentations",
-    title: "MIMSync Platform", subtitle: "Strategy report: from pipeline to platform",
+    title: "Med Tech Platform Proposal", subtitle: "Strategy report: from pipeline to platform",
     summary: "A platform strategy that turns a health-sensor company's hardware into a two-sided marketplace of consumers and coaches.",
     body: "MIMS Inc. already sells metabolic sensors. This deck proposes MIMSync, a platform where each customer's data builds a Digital Twin that matches them with vetted coaches. It covers the value to consumers, coaches and the company, the competitive dynamics, a three-phase scale-up from consumers first to a US launch, the business model and governance, and a business case with a 20 to 24 month operational breakeven.",
     tags: ["Deck", "Platform strategy", "HTML"],
