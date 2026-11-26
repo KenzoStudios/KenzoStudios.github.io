@@ -25,6 +25,33 @@ const SECTIONS = [
 
 const PROJECTS = [
   {
+    id: "dealscout", section: "applications",
+    title: "DealScout", subtitle: "A first-pass company valuation on your own computer",
+    summary: "Reads a company's filings and produces a fast first-pass analysis with an indicative acquisition price range, a football field and an Excel workbook. Local, with no login.",
+    body: "DealScout is a local web app for investment professionals (private equity, M&A, corporate development, equity research and family offices). Add a company and drop in its annual reports; it reads PDF, Excel, Word, HTML, tagged filings and scans, shows every extracted value next to its source with a confidence level, and flags figures that differ between documents. It then runs ratio analysis and a set of valuation methods (DCF, LBO, trading comps, precedent transactions, NAV and sum of the parts, and more) on one football field, and suggests an acquisition price range with implied multiples, a data quality score and a rationale whose numbers all come from the engine. Results export to an Excel workbook with a live DCF model, a PDF tear sheet, a PowerPoint one-pager or JSON. It runs on 127.0.0.1 with no hosted server, and you connect your own AI provider (Claude, OpenAI, Gemini and others) or use it without AI. Outputs are indicative estimates for internal screening, not investment advice or a fairness opinion. The screenshots use a fictional company.",
+    tags: ["App", "Python", "Next.js", "Finance"],
+    cover: "applications/dealscout/shots/acquisition-price.webp",
+    shots: [
+      { src: "applications/dealscout/shots/acquisition-price.webp", alt: "Acquisition price screen for a fictional company: a suggested equity range of GBP 1.6bn to 2.3bn, a data quality score of 80, implied multiples and a football field", cap: "Acquisition price: a suggested range, a data quality score and the football field." },
+      { src: "applications/dealscout/shots/new-deal.webp",          alt: "New deal form with company name, country, sector, currency, valuation date and buyer perspective", cap: "Start a deal: the company, currency and whether you are a sponsor or a strategic buyer." },
+      { src: "applications/dealscout/shots/documents.webp",         alt: "Documents tab with a drop zone for annual reports and one fictional annual report already read", cap: "Drop in annual reports, filings or management accounts. Files stay on your computer." },
+      { src: "applications/dealscout/shots/review.webp",            alt: "Review screen listing extracted income statement values with their periods and confidence levels", cap: "Review: every extracted value with its confidence, checked against its source." },
+      { src: "applications/dealscout/shots/valuation.webp",         alt: "Valuation summary with a DCF football field, revenue and EBITDA chart and an assumptions panel", cap: "Valuation: a DCF with sensitivities and editable assumptions." }
+    ],
+    facts: [
+      ["Runs on", "Mac, Windows or Linux, at 127.0.0.1 in your browser. No hosted server and no login."],
+      ["Reads", "PDF, Excel, CSV, Word, HTML, tagged filings (SEC iXBRL, EU ESEF, XBRL) and scans with Tesseract"],
+      ["Methods", "DCF, LBO, trading comps, precedent transactions, NAV and sum of the parts, dividend discount and more"],
+      ["Exports", "Excel workbook with a live DCF, PDF tear sheet, PowerPoint one-pager, JSON"],
+      ["AI", "Optional. Bring your own key for Claude, OpenAI, Azure OpenAI, Gemini, xAI, Perplexity or your own endpoint."],
+      ["Needs", "uv and Node.js 20 or later. Tesseract and LibreOffice are optional."],
+      ["Status", "Release candidate. Licensed under MIT. Indicative estimates only, not investment advice."]
+    ],
+    actions: [
+      { label: "Download DealScout", note: "A 2.4 MB zip of the source. Unzip it and run start.sh (macOS, Linux) or start.ps1 (Windows). The README has the steps.", href: "applications/dealscout/dealscout.zip", primary: true }
+    ]
+  },
+  {
     id: "job-hunter", section: "applications",
     title: "Job Hunter", subtitle: "A job search that runs itself",
     summary: "Finds roles every weekday, writes a cover letter in your own voice, picks the right CV and tracks every application. It runs on your own computer with Claude.",
