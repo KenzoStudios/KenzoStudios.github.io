@@ -25,6 +25,36 @@ const SECTIONS = [
 
 const PROJECTS = [
   {
+    id: "dealscout-2", section: "applications",
+    title: "DealScout 2.0", subtitle: "The offline LBO analyzer for Mac",
+    summary: "A desktop app that answers one question fast: what needs to be true for this LBO to work? Fully offline, with no AI, no account and no server.",
+    body: "DealScout 2.0 is a macOS desktop app for private equity analysts. Enter a deal, paste in financials or upload a PDF, and see IRR, MOIC and the full annual progression of EBITDA, debt, cash flow and equity, with a returns attribution waterfall. The IRR Map takes a target return and shows the maximum entry multiple, the growth you need, a verdict and a heatmap across entry multiple and growth. An Operating Model builds revenue through to levered free cash flow year by year, FCF Analysis tracks debt service cover, and Scenarios compares bear, base and bull cases side by side. A deal library saves up to 50 deals and exports them to files, and results export to a one-page PDF. It is a separate, smaller app than DealScout. DealScout is a browser-based valuation tool that reads documents with optional AI and blends many methods (DCF, LBO, comps, precedents, NAV and more) into a suggested price range. DealScout 2.0 does one thing in depth, LBO returns, and everything runs on your own computer: the font is bundled, PDFs are read locally, and nothing is sent anywhere. The screenshots use fictional companies and the app's built-in sector presets.",
+    tags: ["App", "Electron", "React", "Finance"],
+    cover: "applications/dealscout-2/shots/cover.webp",
+    shots: [
+      { src: "applications/dealscout-2/shots/cover.webp",          alt: "DealScout 2.0 start screen with four ways to begin: upload a PDF, enter data, pick an industry preset or load a saved deal", cap: "Start from a PDF, your own numbers, a sector preset or a saved deal." },
+      { src: "applications/dealscout-2/shots/standard-lbo.webp",   alt: "Standard LBO tab for a fictional company with 17.0% IRR and 2.19x MOIC, an annual progression table and a returns attribution waterfall", cap: "Standard LBO: returns, the annual progression and where the value comes from." },
+      { src: "applications/dealscout-2/shots/irr-map.webp",        alt: "IRR Map: a heatmap of IRR across entry multiple and EBITDA growth with a target contour and a verdict that the deal does not work at 20%", cap: "IRR Map: what entry price and growth the deal needs to hit your target." },
+      { src: "applications/dealscout-2/shots/operating-model.webp",alt: "Operating Model: revenue to levered free cash flow for each of five years", cap: "Operating Model: revenue through to levered free cash flow, year by year." },
+      { src: "applications/dealscout-2/shots/fcf.webp",            alt: "FCF Analysis: levered free cash flow bars with a DSCR line and a table of annual cash flow and debt", cap: "FCF Analysis: free cash flow and whether the debt can be serviced." },
+      { src: "applications/dealscout-2/shots/scenarios.webp",      alt: "Scenarios: current, bear, base and bull cases compared side by side with IRR and MOIC", cap: "Scenarios: bear, base and bull side by side, generated in one click." },
+      { src: "applications/dealscout-2/shots/import.webp",         alt: "Import: pasted income statement text and the detected revenue, EBITDA, D&A, capex and tax rate with source snippets to accept or override", cap: "Import: values are pulled from pasted text or a PDF, with the source shown." },
+      { src: "applications/dealscout-2/shots/library.webp",        alt: "Deal Library with three fictional deals showing enterprise value, EBITDA, IRR and MOIC", cap: "Deal Library: save, compare and export up to 50 deals." }
+    ],
+    facts: [
+      ["Versus DealScout", "DealScout is a broad valuation tool that reads documents (with optional AI) and suggests a price range. DealScout 2.0 only models LBO returns, in more depth."],
+      ["Runs", "As a native Mac app (Electron), not in a browser. DealScout runs as a local web app."],
+      ["Offline", "No AI, no API keys, no server and no network. Fonts are bundled, PDFs are read on your computer and deals are stored in a local file."],
+      ["Reads", "Pasted text or a PDF, using rules. DealScout also reads Excel, Word, tagged filings and scans."],
+      ["Outputs", "IRR, MOIC, IRR map, sensitivities, FCF and DSCR, scenarios and a one-page PDF. DealScout also exports Excel and PowerPoint."],
+      ["Needs", "Node.js 18 or later to run from source. Build a .dmg with npm run package. Not code-signed."],
+      ["Status", "Version 2.0. Indicative estimates only, not investment advice."]
+    ],
+    actions: [
+      { label: "Download DealScout 2.0", note: "A 170 KB zip of the source. Unzip it, run npm install and npm run dev, or build a Mac app with npm run package. The README has the steps.", href: "applications/dealscout-2/dealscout-2.zip", primary: true }
+    ]
+  },
+  {
     id: "dealscout", section: "applications",
     title: "DealScout", subtitle: "A first-pass company valuation on your own computer",
     summary: "Reads a company's filings and produces a fast first-pass analysis with an indicative acquisition price range, a football field and an Excel workbook. Local, with no login.",
@@ -45,7 +75,8 @@ const PROJECTS = [
       ["Exports", "Excel workbook with a live DCF, PDF tear sheet, PowerPoint one-pager, JSON"],
       ["AI", "Optional. Bring your own key for Claude, OpenAI, Azure OpenAI, Gemini, xAI, Perplexity or your own endpoint."],
       ["Needs", "uv and Node.js 20 or later. Tesseract and LibreOffice are optional."],
-      ["Status", "Release candidate. Licensed under MIT. Indicative estimates only, not investment advice."]
+      ["Status", "Release candidate. Licensed under MIT. Indicative estimates only, not investment advice."],
+      ["See also", "DealScout 2.0: a smaller, fully offline Mac app that models LBO returns in more depth."]
     ],
     actions: [
       { label: "Download DealScout", note: "A 2.4 MB zip of the source. Unzip it and run start.sh (macOS, Linux) or start.ps1 (Windows). The README has the steps.", href: "applications/dealscout/dealscout.zip", primary: true }
