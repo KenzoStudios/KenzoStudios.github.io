@@ -25,6 +25,33 @@ const SECTIONS = [
 
 const PROJECTS = [
   {
+    id: "report-generator", section: "skills",
+    title: "Report Generator", subtitle: "Professional reports in six colour palettes",
+    summary: "A Claude skill that turns data into a formatted report with charts, tables and KPIs. Type /report-generator, pick a palette from a visual grid and get a styled HTML or PDF report.",
+    body: "Report Generator is a Claude skill for building clean, consistent data reports. When you type /report-generator it shows all six colour palettes as a clickable grid, then builds the report in the one you choose: a title band, key figures, charts, tables, callouts and recommendations, exported as HTML or a print-ready PDF. One shared stylesheet and one chart theme keep every report on the same palette, so charts, tables and headings always match. The download includes a two-page sample of the same report in each palette.",
+    tags: ["Skill", "Claude", "Reports", "Design"],
+    cover: "skills/report-generator/shots/palettes.webp", coverFit: "contain", coverBg: "#f6f5f2",
+    shots: [
+      { src: "skills/report-generator/shots/palettes.webp",         alt: "Six colour palette cards in a grid: maroon, forest, navy, plum, terracotta and graphite, each with swatches and hex codes", cap: "The palette picker: all six palettes at once, with their colours." },
+      { src: "skills/report-generator/shots/page1-all.webp",        alt: "Page one of the sample report in each of the six palettes, showing a title band, key figures, a callout and a bar chart", cap: "Page one of the same report in every palette." },
+      { src: "skills/report-generator/shots/page2-all.webp",        alt: "Page two of the sample report in each of the six palettes, showing a table, a line chart, an example callout and recommendations", cap: "Page two: table, chart, callout and recommendations." },
+      { src: "skills/report-generator/shots/forest-spread.webp",    alt: "Both pages of the sample report in the forest palette", cap: "Forest: calm and steady, good for finance." },
+      { src: "skills/report-generator/shots/terracotta-spread.webp",alt: "Both pages of the sample report in the terracotta palette", cap: "Terracotta: warm and editorial." }
+    ],
+    facts: [
+      ["Palettes", "Maroon (default), forest, navy, plum, terracotta and graphite"],
+      ["Outputs", "Self-contained HTML, print-ready PDF through headless Chrome, and matplotlib charts"],
+      ["Consistent", "One stylesheet and one chart theme, so every report keeps to a single palette"],
+      ["Includes", "SKILL.md, the stylesheet, the chart theme, the palette picker and six two-page samples"],
+      ["Install", "Unzip into ~/.claude/skills/ and type /report-generator in Claude Code"],
+      ["Needs", "Claude Code. Python with matplotlib for charts, and Google Chrome for PDF output."]
+    ],
+    actions: [
+      { label: "Download the skill", note: "A zip with the skill folder and six sample reports. Unzip it into ~/.claude/skills/.", href: "skills/report-generator/report-generator.zip", primary: true },
+      { label: "View a sample PDF", note: "The two-page sample report in the forest palette.", href: "skills/report-generator/samples/sample-forest.pdf" }
+    ]
+  },
+  {
     id: "dealscout-2", section: "applications",
     title: "DealScout 2.0", subtitle: "The offline LBO analyzer for Mac",
     summary: "A desktop app that answers one question fast: what needs to be true for this LBO to work? Fully offline, with no AI, no account and no server.",
