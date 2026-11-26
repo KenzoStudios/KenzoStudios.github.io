@@ -59,8 +59,8 @@ body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset
 .tile{position:relative;display:flex;flex-direction:column;gap:12px;min-width:0;padding:clamp(14px,1.4vw,20px);background:var(--tile);border:1px solid var(--edge);border-radius:var(--r);overflow:hidden;cursor:pointer;text-align:left;transition:border-color .25s;animation:fade .8s var(--ease) both}
 .tile:hover{border-color:var(--accent)}
 .tile .top{display:flex;justify-content:space-between;align-items:baseline;gap:12px}
-.tile .n{font:850 clamp(22px,2.6vw,38px)/.9 var(--f-display);font-variation-settings:"wdth" 70;letter-spacing:-.01em;text-transform:uppercase;transition:color .25s}
-.tile.xl .n{font-size:clamp(34px,4.8vw,72px)}
+.tile .n{font:850 clamp(18px,1.8vw,26px)/.95 var(--f-display);font-variation-settings:"wdth" 70;letter-spacing:-.01em;text-transform:uppercase;transition:color .25s}
+.tile.xl .n{font-size:clamp(26px,3vw,44px)}
 .tile:hover .n{color:var(--accent)}
 .tile .c{font:500 12px var(--f-mono);color:var(--muted);white-space:nowrap}
 .tile p{margin:0;font-size:14px;color:var(--muted);line-height:1.5;max-width:48ch}
@@ -91,7 +91,7 @@ body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset
 .tile.empty{cursor:default;grid-row:span 1}
 .tile.empty:hover{border-color:var(--edge)}
 .tile.empty.tall{grid-row:span 2}
-.tile.empty .n{font-size:clamp(20px,2vw,28px)}
+.tile.empty .n{font-size:clamp(17px,1.5vw,22px)}
 .tile.empty:hover .n{color:inherit}
 
 /* Footer */
@@ -166,7 +166,7 @@ kbd{font:500 11px/1 var(--f-mono);min-width:24px;text-align:center;padding:5px 6
 /* View more: a slim button under a homepage section's grid */
 .morebar{display:flex;align-items:center;justify-content:space-between;gap:16px;margin-top:var(--gap);height:clamp(56px,5vw,76px);padding:0 clamp(14px,1.4vw,20px);background:var(--cobalt);color:var(--on-cobalt);border-radius:var(--r);transition:transform .15s}
 .morebar:active{transform:translateY(1px)}
-.morebar .n{font:850 clamp(22px,2.6vw,38px)/1 var(--f-display);font-variation-settings:"wdth" 70;text-transform:uppercase}
+.morebar .n{font:850 clamp(18px,1.8vw,26px)/1 var(--f-display);font-variation-settings:"wdth" 70;text-transform:uppercase}
 .morebar .c{margin-left:auto;font:500 12px var(--f-mono);color:var(--cobalt-muted)}
 .morebar .go{position:static;opacity:1;transform:none;width:36px;height:36px;background:var(--on-cobalt);color:var(--cobalt);transition:transform .4s var(--ease)}
 .morebar:hover .go{transform:translate(3px,-3px)}
@@ -181,12 +181,12 @@ kbd{font:500 11px/1 var(--f-mono);min-width:24px;text-align:center;padding:5px 6
 .bento.all{grid-auto-rows:clamp(170px,17vw,250px)}
 .tile.xl.right{grid-column:3 / span 2}
 /* Small tile: one grid cell, so four of them make a 2x2 beside a large tile */
-.tile.sm .n{font-size:clamp(18px,1.9vw,26px)}
+.tile.sm .n{font-size:clamp(16px,1.4vw,20px)}
 .tile.sm .fr{min-height:0}
 /* Row tile: title on the left and a 16:9 image on the right, so a wide, short tile has no empty bands */
 .tile.row{flex-direction:row;align-items:stretch;gap:clamp(12px,1.2vw,18px)}
 .tile.row .top{flex:1;min-width:0;flex-direction:column;justify-content:space-between;align-items:flex-start}
-.tile.row .n{font-size:clamp(20px,2.1vw,30px)}
+.tile.row .n{font-size:clamp(16px,1.5vw,21px)}
 .tile.row .fr{flex:none;height:100%;width:auto;aspect-ratio:16/9}
 @media (max-width:760px){
   .tile.xl.right{grid-column:span 2}
