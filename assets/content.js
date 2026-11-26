@@ -10,7 +10,7 @@
    ============================================================ */
 const SITE = {
   github: "https://github.com/KenzoStudios",
-  linkedin: "",   // e.g. "https://www.linkedin.com/in/your-handle"
+  linkedin: "https://www.linkedin.com/in/oscar-mb/",
   email: ""       // e.g. "hello@yourdomain.com"
 };
 

@@ -25,6 +25,14 @@
   if ($("#contact-links")) $("#contact-links").innerHTML = linkHTML;
   if ($("#year")) $("#year").textContent = new Date().getFullYear();
 
+  /* Every "Contact" (the nav button and the big footer heading) opens LinkedIn when one is set */
+  if (SITE.linkedin) {
+    const cta = $(".cta");
+    if (cta) { cta.href = SITE.linkedin; cta.target = "_blank"; cta.rel = "noopener"; }
+    const h = $("#contact .contact h2");
+    if (h) h.innerHTML = `<a href="${esc(SITE.linkedin)}" target="_blank" rel="noopener">${h.textContent}</a>`;
+  }
+
   /* Nav: the homepage has section pills; section pages have a single Back button in their own markup */
   if (!PAGE) $("#pills").innerHTML = SECTIONS.map(s => `<li><a href="#${s.id}">${s.name}</a></li>`).join("");
 
