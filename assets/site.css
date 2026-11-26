@@ -182,6 +182,14 @@ kbd{font:500 11px/1 var(--f-mono);min-width:24px;text-align:center;padding:5px 6
 /* Small tile: one grid cell, so four of them make a 2x2 beside a large tile */
 .tile.sm .n{font-size:clamp(18px,1.9vw,26px)}
 .tile.sm .fr{min-height:0}
+/* Row tile: title on the left and a 16:9 image on the right, so a wide, short tile has no empty bands */
+.tile.row{flex-direction:row;align-items:stretch;gap:clamp(12px,1.2vw,18px)}
+.tile.row .top{flex:1;min-width:0;flex-direction:column;justify-content:space-between;align-items:flex-start}
+.tile.row .n{font-size:clamp(20px,2.1vw,30px)}
+.tile.row .fr{flex:none;height:100%;width:auto;aspect-ratio:16/9}
 @media (max-width:760px){
   .tile.xl.right{grid-column:span 2}
+  .tile.row{flex-direction:column;grid-column:span 1}
+  .tile.row .top{flex:none;flex-direction:row;align-items:baseline}
+  .tile.row .fr{flex:1;width:100%;height:auto;aspect-ratio:auto}
 }

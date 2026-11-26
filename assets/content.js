@@ -94,6 +94,32 @@ const PROJECTS = [
     ]
   },
   {
+    id: "meeting-prep", section: "agents",
+    title: "Meeting Prep", subtitle: "A briefing agent for external meetings",
+    summary: "Drop one file into a Claude chat and it sets up an agent that reads your calendar, email and files, then briefs you on each external meeting, with an optional one-page PDF.",
+    body: "Meeting Prep is a one-step setup file for a meeting briefing agent. Give it to Claude, type \"set this up\", and Claude checks your email and calendar connections, asks a few questions (files or emails only, a PDF or chat only, every weekday morning or on request) and creates the agent. For each external meeting it reads the invite, the last six months of email with the attendees and their company, any files in folders you approve, and recent public news about the company (never about individual people). Each brief covers the goal, key points to cover, areas to discuss, potential concerns, tough things the other side might say with how you could respond, who is in the room, and open promises on both sides. It never sends, changes or deletes anything, and the only file it writes is the PDF. The sample brief below uses made-up names and companies.",
+    tags: ["Agent", "Claude", "Scheduled task", "PDF"],
+    cover: "agents/meeting-prep/shots/title.webp", coverFit: "contain", coverBg: "#0a0d18",
+    shots: [
+      { src: "agents/meeting-prep/shots/title.webp",    alt: "Meeting Prep title card beside a one-page sample meeting brief for a Q4 portfolio review", cap: "Meeting Prep: a one-page brief before each external meeting." },
+      { src: "agents/meeting-prep/shots/goal.webp",     alt: "Top of the sample brief: the goal for the meeting, key points to cover and areas to discuss", cap: "The goal, the key points to cover, and areas to discuss." },
+      { src: "agents/meeting-prep/shots/concerns.webp", alt: "Sample brief: potential concerns, including an overdue reply and possible dissatisfaction, and tough things they might say with suggested responses", cap: "Concerns, and tough things they might say with how you could respond." },
+      { src: "agents/meeting-prep/shots/people.webp",   alt: "Sample brief: who is in the room and the promises and open items with days open", cap: "Who is in the room, and the promises open on both sides." }
+    ],
+    facts: [
+      ["Schedule", "Every weekday morning (7:30 by default) for that day's meetings, or on request: prep me for my meeting with X"],
+      ["Reads", "Your calendar, six months of email with the attendees, and optionally files in folders you approve"],
+      ["Brief", "Goal, key points, areas to discuss, concerns, tough questions with responses, who is in the room, open promises"],
+      ["Output", "A brief in the chat, plus an optional one-page PDF"],
+      ["Safety", "Never sends, replies, accepts, changes or deletes. Files are read-only. It never searches the web for individual people."],
+      ["Needs", "A paid Claude plan, and email and calendar connected. File access also needs the Claude desktop app. Check your firm allows it."]
+    ],
+    actions: [
+      { label: "Get the agent file", note: "A single Markdown file. Drop it into a Claude chat and type set this up.", href: "agents/meeting-prep/meeting-prep.md", primary: true },
+      { label: "See a sample brief", note: "A one-page PDF with made-up names and companies.", href: "agents/meeting-prep/sample-meeting-brief.pdf" }
+    ]
+  },
+  {
     id: "iron-frontier", section: "games",
     title: "Iron Frontier", subtitle: "Legion Rising",
     summary: "A pixel-art roguelite run-and-gun with weapon fusions and a boss at the bottom of every zone.",
