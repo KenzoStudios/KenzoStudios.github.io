@@ -25,6 +25,38 @@ const SECTIONS = [
 
 const PROJECTS = [
   {
+    id: "document-analyst", section: "skills",
+    title: "Document Analyst", subtitle: "Turn any corporate document into an analyst report",
+    summary: "A Claude skill that reads a quarterly or annual report, 10-K, financial statement or any corporate document and returns a deep analysis: red flags, inferences, next steps, financial health, then charts and tables.",
+    body: "Document Analyst reads a corporate document end to end and pulls out everything it contains. It starts with a one-to-two page overview: a financial-health verdict, key figures, a nine-point scorecard, ranked red flags and green flags, inferences tagged by confidence, likely next steps and questions to put to management. It then goes deep: income statement, revenue and profit bridges, segments and geography, margins and operating leverage, cash flow and earnings quality, working capital, balance sheet, liquidity, obligations, capital allocation, a risk map, tie-out checks and sources. Every claim cites a page, and facts, inferences and speculation are labelled. Reports use the navy palette of the Report Generator skill. The sample is built from Apple's real FY2026 10-K, filed 3 November 2026: 14 pages of charts and tables.",
+    tags: ["Skill", "Claude", "Analysis", "Finance"],
+    cover: "skills/document-analyst/shots/overview.webp", coverFit: "contain", coverBg: "#e6ebf3",
+    shots: [
+      { src: "skills/document-analyst/shots/cover.webp", alt: "Apple FY2026 10-K analysis, page one: title band, financial-health verdict, eight key figures and the points the filing makes", cap: "Part A overview, page one: verdict, key figures and what the filing says." },
+      { src: "skills/document-analyst/shots/overview.webp", alt: "Pages one and two of the analysis: verdict panel, key figures, scorecard of nine dimensions and the first ranked red flags", cap: "The overview: verdict, scorecard and the ranked red flags." },
+      { src: "skills/document-analyst/shots/red-flags.webp", alt: "Red flags with severity and evidence, green flags, inferences tagged with confidence, and questions for management", cap: "Red flags, green flags, inferences and questions to put to management." },
+      { src: "skills/document-analyst/shots/income-statement.webp", alt: "Three-year income statement table with revenue and operating-income bridge charts", cap: "Part B: the income statement and two bridge charts." },
+      { src: "skills/document-analyst/shots/segments-margins.webp", alt: "Regional sales table and chart, margin trend line chart, products versus services margin and operating leverage", cap: "Segments, geography, margins and operating leverage." },
+      { src: "skills/document-analyst/shots/cash-flow-balance-sheet.webp", alt: "Cash flow table, working-capital days and balances charts, then the balance sheet summary", cap: "Cash flow, working capital and the balance sheet." },
+      { src: "skills/document-analyst/shots/liquidity-capital.webp", alt: "Ratio table, liquidity chart, contractual obligations table and a waterfall of where free cash flow went", cap: "Liquidity, obligations and where the free cash flow went." },
+      { src: "skills/document-analyst/shots/risks-appendix.webp", alt: "Risk factor map, tie-out checks, formulas and sources", cap: "Risk map, tie-out checks, formulas and sources." },
+      { src: "skills/document-analyst/shots/all-pages.webp", alt: "All fourteen pages of the report side by side", cap: "The full 14-page report." }
+    ],
+    facts: [
+      ["Reads", "10-K and 10-Q filings, annual and quarterly reports, earnings releases, financial statements, investor decks and other business documents"],
+      ["Part A", "Verdict, key figures, scorecard, ranked red and green flags, inferences with confidence, next steps and questions for management"],
+      ["Part B", "Statements, bridges, segments, margins, cash flow, balance sheet, liquidity, capital allocation, risks, tie-outs and formulas"],
+      ["Style", "Navy palette from the Report Generator skill, with charts built as inline SVG. Exports HTML and PDF."],
+      ["Sample", "Apple Inc. FY2026 Form 10-K: 14 pages. Figures come from the filing; ratios are calculated and shown."],
+      ["Install", "Unzip both folders into ~/.claude/skills/ and type /document-analyst in Claude Code"],
+      ["Needs", "Claude Code, plus Google Chrome for PDF output. Analysis of a document only, not investment advice."]
+    ],
+    actions: [
+      { label: "Download the skill", note: "A zip with Document Analyst and the Report Generator style files it depends on. Unzip both folders into ~/.claude/skills/.", href: "skills/document-analyst/document-analyst.zip", primary: true },
+      { label: "Read the Apple sample", note: "The full 14-page analysis of Apple's FY2026 10-K as a PDF.", href: "skills/document-analyst/samples/apple-fy2026-10k-analysis.pdf" }
+    ]
+  },
+  {
     id: "report-generator", section: "skills",
     title: "Report Generator", subtitle: "Professional reports in six colour palettes",
     summary: "A Claude skill that turns data into a formatted report with charts, tables and KPIs. Type /report-generator, pick a palette from a visual grid and get a styled HTML or PDF report.",
