@@ -25,6 +25,30 @@ const SECTIONS = [
 
 const PROJECTS = [
   {
+    id: "job-hunter", section: "applications",
+    title: "Job Hunter", subtitle: "A job search that runs itself",
+    summary: "Finds roles every weekday, writes a cover letter in your own voice, picks the right CV and tracks every application. It runs on your own computer with Claude.",
+    body: "Job Hunter is a job-search app that runs on your own computer, with Claude doing the searching and writing. Setup takes about 15 minutes: you add your details, your CVs, up to five cover letters you have written and the industries you want. Claude learns how you write, builds a profile of facts it may use, and schedules a search for weekday mornings. Each role comes with a fit score and the reasons for it, the pay and deadline, which CV to attach, a ready-made cover letter as PDF and Word, and an Apply link. A Chrome extension can fill application forms and attach your files, but it never presses Submit for you. This download is the shareable copy: the app with none of the author's personal data, ready for you to set up as your own.",
+    tags: ["App", "Claude Code", "Chrome extension"],
+    cover: "applications/job-hunter/shots/title.webp", coverFit: "contain", coverBg: "#0a0d18",
+    shots: [
+      { src: "applications/job-hunter/shots/title.webp",  alt: "Job Hunter title card beside an outline of the dashboard: a list of roles with fit rings and a detail view with an apply panel", cap: "Job Hunter: a job search that runs itself." },
+      { src: "applications/job-hunter/shots/format.webp", alt: "Six cards describing each role: fit score, salary and deadline, the right CV, cover letter, autofill and tracking", cap: "What each role shows, and how autofill and tracking work." },
+      { src: "applications/job-hunter/shots/setup.webp",  alt: "Three setup steps: open it in Claude, tell it about you, search every weekday", cap: "Set up in about 15 minutes, then type run any time." }
+    ],
+    facts: [
+      ["Runs on", "Mac or Windows, through the Claude desktop app's Code tab"],
+      ["Setup", "About 15 minutes: your details, CVs, up to five cover letters and the industries you want"],
+      ["Each day", "A weekday search with a fit score, pay, deadline, CV choice and a cover letter for every role"],
+      ["Autofill", "A Chrome extension fills forms and attaches files. It never submits for you."],
+      ["Needs", "The Claude desktop app, and Google Chrome for autofill"],
+      ["Privacy", "Runs on your computer. This copy ships with none of the author's personal data."]
+    ],
+    actions: [
+      { label: "Download Job Hunter", note: "A 3.5 MB zip. Unzip it, open the folder in the Claude desktop app's Code tab and type run.", href: "applications/job-hunter/job-hunter.zip", primary: true }
+    ]
+  },
+  {
     id: "sector-news-brief", section: "agents",
     title: "Sector News Brief", subtitle: "A daily market news agent",
     summary: "Drop one file into a Claude chat and it sets up a scheduled brief that researches your sectors and arrives every weekday morning.",
