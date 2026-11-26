@@ -173,7 +173,7 @@ kbd{font:500 11px/1 var(--f-mono);min-width:24px;text-align:center;padding:5px 6
 
 /* Section pages */
 .page-head{padding-top:clamp(20px,3vw,40px)}
-.page-head h1{margin-top:clamp(18px,2.6vw,36px)}
+.page-head h1{margin-top:clamp(18px,2.6vw,36px);font-size:clamp(56px,14vw,240px)}
 .back{display:inline-flex;align-items:center;gap:10px;padding:10px 16px 10px 12px;border:1px solid var(--edge);border-radius:var(--r);background:var(--tile);font-size:14px;font-weight:500;transition:border-color .2s,color .2s}
 .back svg{width:16px;height:16px;fill:none;stroke:currentColor;stroke-width:2;transition:transform .3s var(--ease)}
 .back:hover{border-color:var(--accent);color:var(--accent)}

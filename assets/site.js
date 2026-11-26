@@ -5,7 +5,7 @@
   const ROOT = new URL("..", document.currentScript.src).href;          // site root, with trailing slash
   const U = p => /^(https?:|mailto:|#)/.test(p) ? p : ROOT + String(p).replace(/^\//, "");
   const PAGE = document.body.dataset.section || "";                      // "" on the homepage
-  const HOME_LIMIT = 3;
+  const HOME_LIMIT = 5;
 
   const $ = s => document.querySelector(s);
   const esc = s => String(s).replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
@@ -52,24 +52,18 @@
   const moreBar = (s, n) =>
     `<a class="morebar" href="${sectionURL(s.id)}"><span class="n">View more</span><span class="c">All ${n} ${s.name.toLowerCase()}</span>${ARROW}</a>`;
 
-  /* Homepage section: up to three projects, one big and two small. From three on, a slim View more bar
-     sits under the grid and opens that section's own page. */
-  function homeGrid(s) {
-    const items = bySec(s.id);
-    if (!items.length) return emptyTile(s, "w4", "In progress");
-    if (items.length === 1) return projectTile(items[0], "w2 h2 xl", true) + emptyTile(s, "w2 h2", "Next up");
-    if (items.length === 2) return projectTile(items[0], "w2 h2 xl", true) + projectTile(items[1], "w2 h2", false);
-    const [a, b, c] = items.slice(0, HOME_LIMIT);
-    return projectTile(a, "w2 h2 xl", true) + projectTile(b, "w2", false) + projectTile(c, "w2", false);
-  }
-  const homeMore = s => { const n = bySec(s.id).length; return n >= HOME_LIMIT ? moreBar(s, n) : ""; };
+  /* Homepage section: the same grid as the section page, for the first five projects: one large tile and
+     four small ones. When there are more than five, a slim View more bar sits under the grid and opens that
+     section's own page. */
+  function homeGrid(s) { return pageGrid(s, HOME_LIMIT); }
+  const homeMore = s => { const n = bySec(s.id).length; return n > HOME_LIMIT ? moreBar(s, n) : ""; };
 
   /* Section page: every project, in groups of five. One big tile alternates left and right, and four
      small tiles fill a 2x2 beside it. A last group of four gets a "Next up" tile in the fifth slot, and a lone project gets one beside it,
      so the grid always closes without gaps. Groups of two use two large tiles. Groups of three put two side-by-side "row" tiles (text left, image
      right) beside the large one. */
-  function pageGrid(s) {
-    const items = bySec(s.id);
+  function pageGrid(s, limit) {
+    const items = bySec(s.id).slice(0, limit || Infinity);
     if (!items.length) return emptyTile(s, "w4", "In progress");
     const html = items.map((p, i) => {
       const g = Math.floor(i / 5), k = i % 5, left = items.length - g * 5;
