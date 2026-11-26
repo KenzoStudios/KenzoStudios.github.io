@@ -25,6 +25,36 @@ const SECTIONS = [
 
 const PROJECTS = [
   {
+    id: "porsche-concept", section: "websites",
+    title: "Porsche, Studio Chroma Concept", subtitle: "A cinematic concept redesign of the Porsche site",
+    summary: "An unofficial ten-page redesign of porsche.com built around scroll: a zoom-out reveal, a walkaround, colour chapters that repaint the page, and a variant explorer with real figures. Images and data are a snapshot, not mine.",
+    body: "This is a concept redesign built purely to show what can be done with HTML design. It is not affiliated with or endorsed by Porsche AG. All model names, photographs, cut-outs and specifications were taken as a snapshot from porsche.com on 26 November 2026; they belong to Porsche AG, none of them are mine, and nothing on the site can be bought or configured. The home page is the cinematic part: Mission S zooms out of a tight crop, details pan sideways, a walkaround cuts between angles, and the whole page changes colour chapter by chapter, papaya for Panamera, violet for Taycan, graphite for the 911. The other pages keep a calm white studio look. A models overview slides each line in as you scroll, and each of the six model pages has a variant explorer: scroll the list of every version and the car and its 0 to 100, power and top speed figures follow along. There are 93 versions across 911, 718, Taycan, Panamera, Macan and Cayenne, plus Mission S and an about page. It is plain HTML, CSS and JavaScript with GSAP ScrollTrigger; photos load from Porsche's own image servers.",
+    tags: ["Website", "Concept", "Scroll", "GSAP"],
+    cover: "websites/porsche-concept/shots/walkaround.webp",
+    shots: [
+      { src: "websites/porsche-concept/shots/walkaround.webp", alt: "Porsche Mission S concept in a white studio with the words Walk around it", cap: "Home: the Mission S walkaround, cut together as you scroll." },
+      { src: "websites/porsche-concept/shots/home.webp",       alt: "Home page opening on a tight crop of the Mission S rear before it zooms out", cap: "The page opens on a tight crop and zooms out as you scroll." },
+      { src: "websites/porsche-concept/shots/papaya.webp",     alt: "The page turned papaya orange with a large Papaya heading for the Panamera chapter", cap: "Colour chapters repaint the whole page: papaya for Panamera." },
+      { src: "websites/porsche-concept/shots/violet.webp",     alt: "Violet Taycan Turbo GT revealed through an expanding circle", cap: "Violet for Taycan, revealed through an opening circle." },
+      { src: "websites/porsche-concept/shots/range.webp",      alt: "The range section panning sideways through six Porsche model lines", cap: "The range pans sideways and links into each model page." },
+      { src: "websites/porsche-concept/shots/models.webp",     alt: "Models overview page with a large Models heading and filters for electric, hybrid and petrol", cap: "Models overview with real figures for each line." },
+      { src: "websites/porsche-concept/shots/explorer.webp",   alt: "911 variant explorer with a side view of the car, three figures and a scrolling list of versions", cap: "Variant explorer: scroll the list and the car and figures follow." },
+      { src: "websites/porsche-concept/shots/cayenne.webp",    alt: "Cayenne model page hero at night", cap: "Every model line gets its own page." },
+      { src: "websites/porsche-concept/shots/phone.webp",      alt: "Four phone screenshots of the 911 and Cayenne pages", cap: "On a phone the explorer stays pinned above the list." }
+    ],
+    facts: [
+      ["What it is", "An unofficial concept redesign, made purely to show what can be done with HTML design"],
+      ["Snapshot", "Images, names and figures from porsche.com, taken on 26 November 2026. None of it is mine and nothing is for sale."],
+      ["Pages", "Home, models, 911, 718, Taycan, Panamera, Macan, Cayenne, Mission S and about"],
+      ["Scroll mechanics", "Pinned zoom-out, sideways pans, scrubbed walkaround, circle reveals, colour chapters, opposing columns and a scroll-linked variant explorer"],
+      ["Built with", "HTML, CSS and JavaScript with GSAP ScrollTrigger and Lenis. Motion turns off for reduced-motion settings."],
+      ["Not affiliated", "Porsche, its model names and photographs belong to Porsche AG. Each model links to porsche.com."]
+    ],
+    actions: [
+      { label: "Open the site", note: "Ten pages. Best on a laptop: scroll slowly from the top. Photos load from Porsche's image servers, so it needs a connection.", href: "websites/porsche-concept/", primary: true }
+    ]
+  },
+  {
     id: "massimo-dutti-concept", section: "websites",
     title: "Massimo Dutti, Rail Concept", subtitle: "A concept redesign of a fashion store in one HTML file",
     summary: "An unofficial redesign of the Massimo Dutti store showing what one HTML file can do: swipeable product rails, a woman and man filter and a quick-view panel. Products are a snapshot, not mine.",

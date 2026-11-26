@@ -1,0 +1,190 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Porsche, a concept redesign</title><meta name="description" content="Concept redesign by Kenzo Studios, made purely to show what can be done with HTML design. Not affiliated with or endorsed by Porsche AG. All vehicle names and photographs belong to Porsche AG and are shown from porsche.com as a snapshot taken on 26 November 2026. Nothing here is an offer; every model links to porsche.com."><link rel="preconnect" href="https://a.storyblok.com"><link rel="preconnect" href="https://images.porsche.com"><link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,400;62..125,500;62..125,600&display=swap" rel="stylesheet"><style>
+*{box-sizing:border-box;margin:0;padding:0}html{-webkit-text-size-adjust:100%}img{display:block;max-width:100%}
+a{color:inherit}button{font:inherit;color:inherit;background:none;border:0;cursor:pointer}
+:focus-visible{outline:2px solid currentColor;outline-offset:3px}
+.notice{position:relative;z-index:60;font:500 11.5px/1.4 system-ui,sans-serif;letter-spacing:.02em;text-align:center;padding:7px 16px;background:var(--n-bg);color:var(--n-fg)}
+.sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0)}
+.disc{font-size:12.5px;line-height:1.6;opacity:.72;max-width:78ch}
+html.lenis,html.lenis body{height:auto}.lenis.lenis-smooth{scroll-behavior:auto!important}
+.cover{width:100%;height:100%;object-fit:cover}
+
+:root{--n-bg:#0e0e0f;--n-fg:#f2f2f0}
+html,body{overflow-x:clip}
+@media(max-width:820px){.chap h2{font-size:clamp(44px,14vw,80px);font-stretch:112%}}
+body{--bg:#f2f2f0;--fg:#0e0e0f;--mut:#5d5d60;background:var(--bg);color:var(--fg);font:16px/1.6 'Archivo',system-ui,sans-serif;transition:background-color .9s cubic-bezier(.2,.7,.2,1),color .9s cubic-bezier(.2,.7,.2,1)}
+body[data-c=studio]{--bg:#f2f2f0;--fg:#0e0e0f;--mut:#5d5d60}
+body[data-c=papaya]{--bg:#c4661a;--fg:#fff4e8;--mut:#ffd9b4}
+body[data-c=violet]{--bg:#4a33d4;--fg:#f4f1ff;--mut:#d0c8ff}
+body[data-c=graphite]{--bg:#2b2c2f;--fg:#f1f1ef;--mut:#a6a7ab}
+body[data-c=night]{--bg:#0d0d0e;--fg:#f1efe9;--mut:#98958e}
+.nav{position:fixed;top:30px;left:0;right:0;z-index:50;display:flex;align-items:center;justify-content:space-between;padding:18px 40px;mix-blend-mode:difference;color:#fff}
+.wm{font:600 15px/1 'Archivo';letter-spacing:.42em;text-transform:uppercase;text-decoration:none}
+.chips{display:flex;gap:12px;align-items:center}
+.chips a{display:flex;align-items:center;justify-content:center;width:44px;height:44px}
+.chips a i{width:12px;height:12px;border-radius:50%;border:1px solid #fff;transition:transform .3s,background .3s}
+.chips a.on i{background:#fff;transform:scale(1.25)}
+.nav .cfg{font-size:13px;letter-spacing:.06em;text-decoration:none;padding:12px 0}
+.wide{font-stretch:125%}
+/* hero */
+.hero{height:100svh;position:relative;overflow:hidden;background:#e9e9e7}
+.hero .img{position:absolute;inset:0;transform-origin:50% 58%}
+.hero h1{position:absolute;left:0;right:0;bottom:11vh;text-align:center;font:500 clamp(44px,7.4vw,132px)/.9 'Archivo';font-stretch:125%;letter-spacing:.24em;text-transform:uppercase;padding-left:.24em;white-space:nowrap;color:#0e0e0f}
+.hero .sub{position:absolute;left:40px;bottom:40px;max-width:30ch;font-size:15px;color:#4a4a4d}
+.hero .cta{position:absolute;right:40px;bottom:40px;display:inline-flex;align-items:center;min-height:48px;padding:0 26px;border-radius:999px;background:#0e0e0f;color:#f2f2f0;text-decoration:none;font-size:14px}
+/* word reveal */
+.words{padding:22vh 40px 18vh;display:grid;grid-template-columns:repeat(12,1fr)}
+.words p{grid-column:3/11;font:400 clamp(28px,3.6vw,58px)/1.12 'Archivo';letter-spacing:-.015em}
+.words p span{opacity:.15}
+/* horizontal pan */
+.pan{height:100svh;overflow:hidden;position:relative}
+.pan h2{position:absolute;top:14vh;left:8vw;font:500 14px 'Archivo';letter-spacing:.3em;text-transform:uppercase;color:var(--mut);z-index:2}
+.track{display:flex;height:100%;width:max-content;align-items:center;gap:4vw;padding:0 8vw}
+.panel{flex:0 0 auto;width:58vw;height:70svh;position:relative;overflow:hidden;border-radius:4px}
+.panel.tall{width:32vw}
+.panel img{width:115%;height:100%;object-fit:cover;max-width:none}
+.panel figcaption{position:absolute;left:22px;bottom:18px;font-size:14px;color:#fff;mix-blend-mode:difference}
+/* walkaround */
+.walk{height:100svh;position:relative;overflow:hidden;background:#ececea}
+.walk img{position:absolute;inset:0;opacity:0}.walk img.first{opacity:1}
+.walk .lbl{position:absolute;left:40px;top:50%;transform:translateY(-50%);font:500 clamp(38px,5vw,84px)/1 'Archivo';font-stretch:112%;max-width:9ch;mix-blend-mode:difference;color:#fff;z-index:2}
+.walk .bar{position:absolute;left:40px;right:40px;bottom:36px;height:2px;background:rgba(0,0,0,.12);z-index:2}.walk .bar i{display:block;height:100%;background:#0e0e0f;transform-origin:0 50%;transform:scaleX(0)}
+/* colour chapter title */
+.chap{min-height:92svh;display:grid;align-content:center;padding:18vh 40px 10vh}
+.chap h2{font:500 clamp(60px,13vw,230px)/.86 'Archivo';font-stretch:125%;letter-spacing:-.01em;text-transform:uppercase}
+.chap p{margin-top:28px;max-width:40ch;color:var(--mut);font-size:17px}
+.chap .model{display:inline-block;margin-top:18px;font-size:14px;letter-spacing:.06em;text-decoration:none;border-bottom:1px solid currentColor;padding:6px 0}
+/* iris */
+.iris{height:100svh;position:relative;overflow:hidden;display:grid;place-items:center}
+.iris .ph{position:absolute;inset:0;clip-path:circle(13% at 50% 52%)}
+.iris h3{position:relative;z-index:2;font:500 clamp(30px,4vw,64px)/1 'Archivo';font-stretch:125%;text-transform:uppercase;letter-spacing:.2em;padding-left:.2em;mix-blend-mode:difference;color:#fff}
+/* opposing columns */
+.cols{display:grid;grid-template-columns:1fr 1fr 1fr;gap:16px;padding:0 40px;height:150svh;overflow:hidden}
+.col{display:flex;flex-direction:column;gap:16px}
+.col figure{border-radius:4px;overflow:hidden;aspect-ratio:4/5}.col figure img{width:100%;height:100%;object-fit:cover}
+/* clip reveal grid */
+.reveal{padding:14vh 40px 18vh;display:grid;grid-template-columns:repeat(12,1fr);gap:24px}
+.reveal figure{position:relative;overflow:hidden;border-radius:4px}
+.reveal figure img{height:100%;width:100%;object-fit:cover;transform:scale(1.25)}
+.r1{grid-column:1/8;aspect-ratio:16/10}.r2{grid-column:8/13;aspect-ratio:4/5;margin-top:22vh}.r3{grid-column:2/7;aspect-ratio:4/5;margin-top:-8vh}.r4{grid-column:7/13;aspect-ratio:16/10;margin-top:12vh}
+.reveal figcaption{position:absolute;left:18px;bottom:14px;color:#fff;font-size:14px;mix-blend-mode:difference}
+/* swatches */
+.swatches{padding:16vh 40px 20vh}
+.swatches h2{font:500 clamp(34px,4.4vw,72px)/1 'Archivo';font-stretch:112%;margin-bottom:8vh;max-width:16ch}
+.sws{display:grid;grid-template-columns:repeat(4,1fr);gap:16px}
+.sw{position:relative;aspect-ratio:3/4;overflow:hidden;border-radius:4px;text-decoration:none;color:#fff}
+.sw img{width:100%;height:100%;object-fit:cover;transition:transform 1.2s cubic-bezier(.16,1,.3,1)}.sw:hover img{transform:scale(1.05)}
+.sw span{position:absolute;left:18px;right:18px;bottom:16px;display:flex;justify-content:space-between;gap:8px;font-size:14px;text-shadow:0 1px 12px rgba(0,0,0,.55)}
+.sw b{font-weight:500}
+/* outro */
+.outro{height:120svh;position:relative;overflow:hidden;display:grid;place-items:center;text-align:center}
+.outro img{position:absolute;inset:0}.outro div{position:relative;z-index:2;color:#0e0e0f}
+.outro h2{font:500 clamp(44px,7vw,120px)/1 'Archivo';font-stretch:125%;letter-spacing:.08em;text-transform:uppercase}
+.outro a{display:inline-flex;margin-top:28px;min-height:50px;align-items:center;padding:0 28px;border-radius:999px;background:#0e0e0f;color:#f2f2f0;text-decoration:none}
+.foot{padding:72px 40px 80px;display:grid;gap:14px;background:#0e0e0f;color:#f2f2f0}
+.foot .wm{font-size:18px}
+@media(max-width:820px){.nav{padding:10px 12px}.nav .cfg{display:none}.chips{gap:0}
+.hero h1{letter-spacing:.12em;padding-left:.12em;bottom:24vh}.hero .sub{left:18px;bottom:96px}.hero .cta{left:18px;right:auto;bottom:28px}
+.words{padding:14vh 18px}.words p{grid-column:1/-1}.pan{height:auto;padding:12vh 0 4vh}.pan h2{position:static;margin:0 18px 14px}
+.track{flex-direction:column;width:auto;padding:0 18px;gap:14px}.panel,.panel.tall{width:100%;height:auto;aspect-ratio:4/3}.panel img{width:100%}
+.walk .lbl{left:18px}.chap{padding:14vh 18px 8vh;min-height:70svh}.cols{grid-template-columns:1fr 1fr;padding:0 18px;height:auto}.col:nth-child(3){display:none}
+.reveal{padding:10vh 18px;grid-template-columns:1fr}.reveal figure{grid-column:1/-1!important;margin:0!important}
+.swatches{padding:12vh 18px}.sws{grid-template-columns:1fr 1fr}.foot{padding:56px 18px}}
+html.rm .hero .img{transform:none!important}html.rm .iris .ph{clip-path:none}
+</style><style>
+.nav .hr{display:flex;gap:22px}.nav .cfg{color:#fff}
+.range{padding:16vh 0 12vh;overflow:hidden}.range h2{padding:0 40px;font:500 clamp(44px,7vw,120px)/.9 'Archivo';font-stretch:125%;margin-bottom:6vh}
+.rtrack{display:flex;gap:2vw;padding:0 40px;width:max-content}
+.rc{flex:0 0 auto;width:38vw;display:grid;gap:8px;text-decoration:none;padding:26px;border-radius:4px;background:#e7e7e5;color:#0e0e0f;transition:background .4s}
+.rc:hover{background:#ddddda}.rc img{width:100%;aspect-ratio:3.2/1;object-fit:contain;filter:drop-shadow(0 18px 16px rgba(0,0,0,.18))}
+.rc b{font:500 clamp(28px,3vw,52px)/1 'Archivo';font-stretch:125%}.rc span{font-size:14px;color:#5d5d60}
+.rc.all{width:24vw;align-content:end;background:#0e0e0f;color:#f2f2f0}.rc.all span{color:#a6a7ab}
+.sfoot{padding:72px 40px 80px;display:grid;gap:18px;background:#0e0e0f;color:#f2f2f0}.sfoot .top{display:grid;grid-template-columns:1fr 2fr 1fr;gap:24px;margin-bottom:24px}
+.sfoot nav{display:flex;flex-wrap:wrap;gap:8px 22px;font-size:14px}.sfoot nav a{text-decoration:none;padding:4px 0}
+@media(max-width:820px){.nav .hide{display:none}.range h2{padding:0 18px}.rtrack{flex-direction:column;width:auto;padding:0 18px}.rc,.rc.all{width:100%}.sfoot{padding:56px 18px}.sfoot .top{grid-template-columns:1fr}}
+</style></head><body><div class="notice" role="note">Concept redesign for demonstration only. Not affiliated with Porsche. Images: porsche.com, snapshot 26 November 2026.</div>
+<header class="nav"><a class="wm" href="#top">Porsche</a>
+<nav class="chips" aria-label="Colour chapters"><a href="#ch-studio" data-chip="studio" aria-label="Studio white" class=on><i></i></a><a href="#ch-papaya" data-chip="papaya" aria-label="Papaya"><i></i></a><a href="#ch-violet" data-chip="violet" aria-label="Violet"><i></i></a><a href="#ch-graphite" data-chip="graphite" aria-label="Graphite"><i></i></a></nav>
+<span class="hr"><a class="cfg" href="models.html">Models</a><a class="cfg hide" href="mission-s.html">Mission S</a><a class="cfg hide" href="about.html">About</a></span></header>
+<main id="top">
+<section class="hero" id="ch-studio" data-c="studio" aria-label="Mission S"><div class="img"><img class="cover" src="https://a.storyblok.com/f/322327/7680x4320/d01b79811b/mission-s-exterior.jpg/m/3200x0/filters:format(webp):quality(82)" alt="Porsche Mission S concept, rear view, in a white studio"></div>
+<h1>Mission&nbsp;S</h1><p class="sub">Four colours, one studio. Scroll and the light changes with the car.</p><a class="cta" href="#details">Begin</a></section>
+<section class="words" data-c="studio"><p id="words">Start in white, where nothing hides. Then let colour take over: papaya, violet, graphite. Every chapter belongs to a different Porsche.</p></section>
+<section class="pan" id="details" data-c="studio"><h2>Mission S, up close</h2><div class="track">
+<figure class="panel"><img src="https://a.storyblok.com/f/322327/3905x2659/381f4e50a5/mission-s-headlight.jpg/m/2000x0/filters:format(webp):quality(82)" alt="Mission S headlight detail" loading="lazy"><figcaption>Four-point light signature</figcaption></figure>
+<figure class="panel tall"><img src="https://a.storyblok.com/f/322327/2968x4052/5c84b7942d/mission-s-detail.jpg/m/1400x0/filters:format(webp):quality(82)" alt="Mission S seen from above" loading="lazy"><figcaption>Seen from above</figcaption></figure>
+<figure class="panel"><img src="https://a.storyblok.com/f/322327/3905x2659/643c4dec10/mission-s-fender.jpg/m/2000x0/filters:format(webp):quality(82)" alt="Mission S front fender" loading="lazy"><figcaption>The fender, carved</figcaption></figure>
+<figure class="panel"><img src="https://a.storyblok.com/f/322327/3905x2659/4a0bf07a24/mission-s-wheel.jpg/m/2000x0/filters:format(webp):quality(82)" alt="Mission S wheel and rear haunch" loading="lazy"><figcaption>Wheel and haunch</figcaption></figure></div></section>
+<section class="walk" data-c="studio" aria-label="Walkaround"><img class="cover first" src="https://a.storyblok.com/f/322327/3840x2160/296ef9c158/mission-s-reveal.jpg/m/2600x0/filters:format(webp):quality(82)" alt="Mission S walkaround, frame 1" loading="lazy"><img class="cover" src="https://a.storyblok.com/f/322327/6158x3464/ba49b90b42/mission-s-walkaround.jpg/m/2600x0/filters:format(webp):quality(82)" alt="Mission S walkaround, frame 2" loading="lazy"><img class="cover" src="https://a.storyblok.com/f/322327/7680x3840/e9b34cf231/mission-s-stage.jpg/m/2600x0/filters:format(webp):quality(82)" alt="Mission S walkaround, frame 3" loading="lazy"><img class="cover" src="https://a.storyblok.com/f/322327/7680x4320/d01b79811b/mission-s-exterior.jpg/m/2600x0/filters:format(webp):quality(82)" alt="Mission S walkaround, frame 4" loading="lazy">
+<p class="lbl">Walk around it.</p><div class="bar"><i></i></div></section>
+
+<section class="chap" id="ch-papaya" data-c="papaya"><h2>Papaya</h2><p>Panamera Turbo E-Hybrid. A grand tourer in the warmest colour in the book.</p><a class="model" href="https://www.porsche.com/international/models/panamera/panamera-models/panamera-turbo-e-hybrid/">Panamera at porsche.com</a></section>
+<section class="iris" data-c="papaya"><div class="ph"><img class="cover" src="https://a.storyblok.com/f/322327/3165x1779/07855fb318/pa24p5kix0001-panamera-turbo-e-hybrid-design.jpg/m/3000x0/filters:format(webp):quality(82)" alt="Panamera Turbo E-Hybrid in papaya, front three-quarter" loading="lazy"></div><h3>Panamera</h3></section>
+<section class="cols" data-c="papaya"><div class="col"><figure><img src="https://a.storyblok.com/f/322327/3165x1779/7b3b2c10de/pa24p5kid0002-panamera-turbo-e-hybrid-front.jpg/m/1100x0/filters:format(webp):quality(82)" alt="Panamera Turbo E-Hybrid detail" loading="lazy"></figure><figure><img src="https://a.storyblok.com/f/322327/3165x1779/78e91d73eb/pa24p5kix0003-panamera-turbo-e-hybrid-rear-lights.jpg/m/1100x0/filters:format(webp):quality(82)" alt="Panamera Turbo E-Hybrid detail" loading="lazy"></figure><figure><img src="https://a.storyblok.com/f/322327/3165x1779/ef9d8caa49/pa24p5kid0005-panamera-turbo-e-hybrid-wheels.jpg/m/1100x0/filters:format(webp):quality(82)" alt="Panamera Turbo E-Hybrid detail" loading="lazy"></figure><figure><img src="https://a.storyblok.com/f/322327/3165x1779/04e1fc16b0/pa24p5kid0008-panamera-turbo-e-hybrid-spoiler.jpg/m/1100x0/filters:format(webp):quality(82)" alt="Panamera Turbo E-Hybrid detail" loading="lazy"></figure></div><div class="col"><figure><img src="https://a.storyblok.com/f/322327/3165x1779/77d2dda6fb/pa24p5kid0004-panamera-turbo-e-hybrid-side.jpg/m/1100x0/filters:format(webp):quality(82)" alt="Panamera Turbo E-Hybrid detail" loading="lazy"></figure><figure><img src="https://a.storyblok.com/f/322327/4220x2372/2713b81268/pa27p5kid0018-panamera-turbo-e-hybrid-sport-chrono.jpg/m/1100x0/filters:format(webp):quality(82)" alt="Panamera Turbo E-Hybrid detail" loading="lazy"></figure><figure><img src="https://a.storyblok.com/f/322327/3165x1779/531b0d67a9/pa24p5kid0010-panamera-turbo-e-hybrid-tailpipes.jpg/m/1100x0/filters:format(webp):quality(82)" alt="Panamera Turbo E-Hybrid detail" loading="lazy"></figure><figure><img src="https://a.storyblok.com/f/322327/3165x1779/f2e970b0d4/pa24p5kid0003-panamera-turbo-e-hybrid-windows.jpg/m/1100x0/filters:format(webp):quality(82)" alt="Panamera Turbo E-Hybrid detail" loading="lazy"></figure></div><div class="col"><figure><img src="https://a.storyblok.com/f/322327/3165x1779/07855fb318/pa24p5kix0001-panamera-turbo-e-hybrid-design.jpg/m/1100x0/filters:format(webp):quality(82)" alt="Panamera Turbo E-Hybrid detail" loading="lazy"></figure><figure><img src="https://a.storyblok.com/f/322327/3165x1779/04e1fc16b0/pa24p5kid0008-panamera-turbo-e-hybrid-spoiler.jpg/m/1100x0/filters:format(webp):quality(82)" alt="Panamera Turbo E-Hybrid detail" loading="lazy"></figure><figure><img src="https://a.storyblok.com/f/322327/3165x1779/7b3b2c10de/pa24p5kid0002-panamera-turbo-e-hybrid-front.jpg/m/1100x0/filters:format(webp):quality(82)" alt="Panamera Turbo E-Hybrid detail" loading="lazy"></figure><figure><img src="https://a.storyblok.com/f/322327/3165x1779/78e91d73eb/pa24p5kix0003-panamera-turbo-e-hybrid-rear-lights.jpg/m/1100x0/filters:format(webp):quality(82)" alt="Panamera Turbo E-Hybrid detail" loading="lazy"></figure></div></section>
+
+<section class="chap" id="ch-violet" data-c="violet"><h2>Violet</h2><p>Taycan Turbo GT with Weissach package. A colour that only works on a car this sure of itself.</p><a class="model" href="https://www.porsche.com/international/models/taycan/taycan-models/taycan-turbo-gt/">Taycan Turbo GT at porsche.com</a></section>
+<section class="iris" data-c="violet"><div class="ph"><img class="cover" src="https://a.storyblok.com/f/322327/2616x1472/5f9c4bd6c2/ta25q3gix0002-taycan-tubo-gt-wp-front-desktop-myt.jpg/m/3000x0/filters:format(webp):quality(82)" alt="Taycan Turbo GT in violet" loading="lazy"></div><h3>Taycan</h3></section>
+
+<section class="chap" id="ch-graphite" data-c="graphite"><h2>Graphite</h2><p>911 Carrera GTS, photographed like a sculpture. Grey paint, yellow calipers, nothing else.</p><a class="model" href="https://www.porsche.com/international/models/911/carrera-models/911-carrera-gts/">911 Carrera GTS at porsche.com</a></section>
+<section class="reveal" data-c="graphite">
+<figure class="r1"><img src="https://a.storyblok.com/f/322327/3165x1779/fc25c9b9f2/cz25w12id0001-911-carrera-gts-front.jpg/m/2000x0/filters:format(webp):quality(82)" alt="911 Carrera GTS front" loading="lazy"><figcaption>Front</figcaption></figure>
+<figure class="r2"><img src="https://a.storyblok.com/f/322327/3165x1779/d6d36df730/cz25w12id0006-911-carrera-gts-brakes.jpg/m/1600x0/filters:format(webp):quality(82)" alt="911 Carrera GTS brakes" loading="lazy"><figcaption>Brakes</figcaption></figure>
+<figure class="r3"><img src="https://a.storyblok.com/f/322327/2512x1416/a21dde89a4/cz25w12id0002-911-carrera-headlights.jpg/m/1600x0/filters:format(webp):quality(82)" alt="911 Carrera headlights" loading="lazy"><figcaption>Headlights</figcaption></figure>
+<figure class="r4"><img src="https://a.storyblok.com/f/322327/3165x1779/b791707a17/cz25w12ix0001-911-carrera-gts-upper-rear.jpg/m/2000x0/filters:format(webp):quality(82)" alt="911 Carrera GTS rear" loading="lazy"><figcaption>Rear</figcaption></figure></section>
+
+<section class="range" data-c="graphite" aria-label="The range"><h2>The range</h2><div class="rtrack"><a class="rc" href="911.html"><img src="https://images.porsche.com/f/285489813253582/5000x1485/0c6bed536c/model-992452-side-shot.png/m/1400x0/filters:format(webp):quality(85)" alt="911 Turbo S, side view" loading="lazy"><b>911</b><span>The sports car, since 1963.</span></a><a class="rc" href="718.html"><img src="https://images.porsche.com/f/285489813253582/5000x1490/87782eb731/model-982850-2025-side-shot_6a6dc68c74134051a7366bd58c3a6722.png/m/1400x0/filters:format(webp):quality(85)" alt="718 Cayman GT4 RS, side view" loading="lazy"><b>718</b><span>Mid-engine, two seats.</span></a><a class="rc" href="taycan.html"><img src="https://images.porsche.com/f/285489813253582/5000x1390/ff0291ead8/model-y1afp1-side-shot_4640060826294db8801ffa7e67e0879b.png/m/1400x0/filters:format(webp):quality(85)" alt="Taycan Turbo GT with Weissach Package, side view" loading="lazy"><b>Taycan</b><span>Porsche, fully electric.</span></a><a class="rc" href="panamera.html"><img src="https://images.porsche.com/f/285489813253582/5000x1393/67ff2e5300/model-yaafh1-side-shot_0014944cd1d94a0caa038eb703d2430e.png/m/1400x0/filters:format(webp):quality(85)" alt="Panamera Turbo S E-Hybrid, side view" loading="lazy"><b>Panamera</b><span>A sports car with four doors.</span></a><a class="rc" href="macan.html"><img src="https://images.porsche.com/f/285489813253582/5000x1705/b8b7429f86/model-xabfd1-side-shot_e6fff63c24484089b98adbd071bb3cce.png/m/1400x0/filters:format(webp):quality(85)" alt="Macan Turbo Electric, side view" loading="lazy"><b>Macan</b><span>The compact SUV, electric.</span></a><a class="rc" href="cayenne.html"><img src="https://images.porsche.com/f/285489813253582/5000x1795/60eb1b52c4/model-x1acd1-side-shot.png/m/1400x0/filters:format(webp):quality(85)" alt="Cayenne Turbo Electric, side view" loading="lazy"><b>Cayenne</b><span>Five seats. Electric, hybrid or petrol.</span></a><a class="rc all" href="models.html"><b>All models</b><span>Six lines, 93 versions</span></a></div></section><section class="swatches" data-c="night"><h2>Four colours. Pick a chapter.</h2><div class="sws"><a class="sw" href="panamera.html"><img src="https://a.storyblok.com/f/322327/3165x1779/07855fb318/pa24p5kix0001-panamera-turbo-e-hybrid-design.jpg/m/1000x0/filters:format(webp):quality(82)" alt="Panamera in papaya" loading="lazy"><span><b>Papaya</b>Panamera</span></a><a class="sw" href="taycan.html"><img src="https://a.storyblok.com/f/322327/3165x1779/e1ca4384dc/ta25q3gix0002-taycan-turbo-gt-wp-front.jpg/m/1000x0/filters:format(webp):quality(82)" alt="Taycan Turbo GT in violet" loading="lazy"><span><b>Violet</b>Taycan Turbo GT</span></a><a class="sw" href="911.html"><img src="https://a.storyblok.com/f/322327/3165x1779/fc25c9b9f2/cz25w12id0001-911-carrera-gts-front.jpg/m/1000x0/filters:format(webp):quality(82)" alt="911 Carrera GTS in graphite" loading="lazy"><span><b>Graphite</b>911 Carrera GTS</span></a><a class="sw" href="mission-s.html"><img src="https://a.storyblok.com/f/322327/6158x3464/ba49b90b42/mission-s-walkaround.jpg/m/1000x0/filters:format(webp):quality(82)" alt="Mission S in studio white" loading="lazy"><span><b>Studio white</b>Mission S</span></a></div></section>
+<section class="outro" data-c="studio"><img class="cover" src="https://a.storyblok.com/f/322327/7680x3840/e9b34cf231/mission-s-stage.jpg/m/3000x0/filters:format(webp):quality(82)" alt="" aria-hidden="true" loading="lazy"><div><h2>Choose yours</h2><a href="models.html">Explore the range</a></div></section>
+</main><footer class="sfoot"><div class="top"><p class="wm">Porsche</p><nav aria-label="Footer models"><a href="911.html">911</a><a href="718.html">718</a><a href="taycan.html">Taycan</a><a href="panamera.html">Panamera</a><a href="macan.html">Macan</a><a href="cayenne.html">Cayenne</a><a href="mission-s.html">Mission S</a></nav><nav aria-label="Footer"><a href="models.html">All models</a><a href="about.html">About this concept</a><a href="https://www.porsche.com/international/">porsche.com</a></nav></div><p class="disc">Concept redesign by Kenzo Studios, made purely to show what can be done with HTML design. Not affiliated with or endorsed by Porsche AG. All vehicle names and photographs belong to Porsche AG and are shown from porsche.com as a snapshot taken on 26 November 2026. Nothing here is an offer; every model links to porsche.com.</p><p class="disc">Design and build: Kenzo Studios. Specifications as listed on porsche.com (international) on 26 November 2026.</p></footer><script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/gsap.min.js"></script><script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/ScrollTrigger.min.js"></script><script src="https://unpkg.com/lenis@1.1.13/dist/lenis.min.js"></script><script>
+gsap.registerPlugin(ScrollTrigger);
+const REDUCE = matchMedia('(prefers-reduced-motion: reduce)').matches;
+document.documentElement.classList.toggle('rm', REDUCE);
+if (!REDUCE && window.Lenis) {
+  const lenis = new Lenis({ lerp: 0.085, wheelMultiplier: 0.9 });
+  lenis.on('scroll', ScrollTrigger.update);
+  gsap.ticker.add(t => lenis.raf(t * 1000)); gsap.ticker.lagSmoothing(0);
+  document.querySelectorAll('a[href^="#"]').forEach(a => a.addEventListener('click', e => { const t = document.querySelector(a.getAttribute('href')); if (t) { e.preventDefault(); lenis.scrollTo(t, { offset: 0 }); } }));
+}
+addEventListener('load', () => { ScrollTrigger.sort(); ScrollTrigger.refresh(); });
+
+const chips = document.querySelectorAll('[data-chip]');
+const setC = c => { document.body.dataset.c = c; chips.forEach(ch => ch.classList.toggle('on', ch.dataset.chip === c)); };
+setC('studio');
+const mm = gsap.matchMedia();
+mm.add({ok: '(prefers-reduced-motion: no-preference)', desk: '(min-width: 821px)'}, ctx => { const {ok, desk} = ctx.conditions; if (!ok) return;
+  gsap.fromTo('.hero .img', {scale: 2.4}, {scale: 1, ease: 'none', scrollTrigger: {trigger: '.hero', start: 'top top', end: '+=140%', scrub: true, pin: true}});
+  gsap.fromTo('.hero h1', {letterSpacing: '0.6em', opacity: 0}, {letterSpacing: '0.24em', opacity: 1, ease: 'none', scrollTrigger: {trigger: '.hero', start: 'top top', end: '+=100%', scrub: true}});
+  const w = document.getElementById('words'); if (!w.querySelector('span')) w.innerHTML = w.textContent.split(' ').map(t => `<span>${t}</span>`).join(' ');
+  gsap.to('#words span', {opacity: 1, stagger: .08, ease: 'none', scrollTrigger: {trigger: '.words', start: 'top 70%', end: 'bottom 60%', scrub: true}});
+  if (desk) { const tr = document.querySelector('.track'), d = () => tr.scrollWidth - innerWidth;
+    gsap.to(tr, {x: () => -d(), ease: 'none', scrollTrigger: {trigger: '.pan', start: 'top top', end: () => '+=' + d(), scrub: 1, pin: true, invalidateOnRefresh: true}});
+    gsap.utils.toArray('.panel img').forEach(im => gsap.fromTo(im, {xPercent: -6}, {xPercent: 6, ease: 'none', scrollTrigger: {trigger: '.pan', start: 'top top', end: () => '+=' + d(), scrub: true}})); }
+  const frames = gsap.utils.toArray('.walk img');
+  const walk = gsap.timeline({scrollTrigger: {trigger: '.walk', start: 'top top', end: '+=260%', scrub: true, pin: true}});
+  frames.forEach((f, i) => { walk.fromTo(f, {scale: 1.08}, {scale: 1, duration: 1, ease: 'none'}, i - .2); if (i) walk.to(f, {opacity: 1, duration: .22, ease: 'power1.inOut'}, i - .2); });
+  walk.to('.walk .bar i', {scaleX: 1, duration: frames.length - .2, ease: 'none'}, 0);
+  gsap.utils.toArray('.chap').forEach(c => {
+    gsap.from(c.querySelector('h2'), {yPercent: 40, opacity: 0, ease: 'none', scrollTrigger: {trigger: c, start: 'top 85%', end: 'top 30%', scrub: true}});
+    gsap.fromTo(c.querySelector('h2'), {letterSpacing: '0.12em'}, {letterSpacing: '-0.01em', ease: 'none', scrollTrigger: {trigger: c, start: 'top 85%', end: 'bottom top', scrub: true}});
+  });
+  gsap.utils.toArray('.iris').forEach(sec => {
+    const tl = gsap.timeline({scrollTrigger: {trigger: sec, start: 'top top', end: '+=140%', scrub: true, pin: true}});
+    tl.fromTo(sec.querySelector('.ph'), {clipPath: 'circle(13% at 50% 52%)'}, {clipPath: 'circle(76% at 50% 52%)', ease: 'none'})
+      .fromTo(sec.querySelector('.ph img'), {scale: 1.4}, {scale: 1, ease: 'none'}, 0)
+      .fromTo(sec.querySelector('h3'), {letterSpacing: '0.2em', opacity: 1}, {letterSpacing: '1.2em', opacity: 0, ease: 'none'}, .3);
+  });
+  gsap.utils.toArray('.col').forEach((c, i) => gsap.fromTo(c, {yPercent: i % 2 ? -24 : 0}, {yPercent: i % 2 ? 0 : -24, ease: 'none', scrollTrigger: {trigger: '.cols', start: 'top bottom', end: 'bottom top', scrub: true}}));
+  gsap.utils.toArray('.reveal figure').forEach(f => {
+    gsap.fromTo(f, {clipPath: 'inset(18% 12% 18% 12%)'}, {clipPath: 'inset(0% 0% 0% 0%)', ease: 'none', scrollTrigger: {trigger: f, start: 'top 95%', end: 'top 35%', scrub: true}});
+    gsap.to(f.querySelector('img'), {scale: 1, ease: 'none', scrollTrigger: {trigger: f, start: 'top bottom', end: 'bottom top', scrub: true}});
+  });
+  gsap.utils.toArray('.sw').forEach((el, i) => gsap.from(el, {y: 120 + i * 50, opacity: 0, ease: 'none', scrollTrigger: {trigger: '.sws', start: 'top 95%', end: 'top 40%', scrub: true}}));
+  gsap.fromTo('.outro img', {scale: 1.25}, {scale: 1, ease: 'none', scrollTrigger: {trigger: '.outro', start: 'top bottom', end: 'bottom bottom', scrub: true}});
+});
+document.querySelectorAll('main [data-c]').forEach(sec => ScrollTrigger.create({trigger: sec, start: 'top 55%', end: 'bottom 55%', onToggle: st => { if (st.isActive) setC(sec.dataset.c); }}));
+
+ScrollTrigger.sort(); ScrollTrigger.refresh();</script><script>
+mm.add({ok:'(prefers-reduced-motion: no-preference)', desk:'(min-width: 821px)'}, ctx => { if (!ctx.conditions.ok || !ctx.conditions.desk) return;
+  const tr = document.querySelector('.rtrack'), d = () => Math.max(0, tr.scrollWidth - innerWidth);
+  gsap.to(tr, {x: () => -d(), ease: 'none', scrollTrigger: {trigger: '.range', start: 'top top', end: () => '+=' + d(), scrub: 1, pin: true, invalidateOnRefresh: true}});
+  gsap.utils.toArray('.rc img').forEach(im => gsap.fromTo(im, {xPercent: 22}, {xPercent: -8, ease: 'none', scrollTrigger: {trigger: '.range', start: 'top top', end: () => '+=' + d(), scrub: true}}));
+  ScrollTrigger.sort(); ScrollTrigger.refresh(); });
+</script></body></html>
