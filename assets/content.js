@@ -33,6 +33,13 @@ const PROJECTS = [
     cover: "skills/report-generator/shots/palettes.webp", coverFit: "contain", coverBg: "#f6f5f2",
     shots: [
       { src: "skills/report-generator/shots/palettes.webp",         alt: "Six colour palette cards in a grid: maroon, forest, navy, plum, terracotta and graphite, each with swatches and hex codes", cap: "The palette picker: all six palettes at once, with their colours." },
+      { src: "skills/report-generator/shots/full-report-all.webp", alt: "The same full report in all six palettes: title band, key figures, bar and line charts, a category chart, a table, callouts and recommendations", cap: "One full report, the same content in all six palettes." },
+      { src: "skills/report-generator/shots/full-report-maroon.webp", alt: "Full sample report in the maroon palette with charts, a table, callouts and text", cap: "Full report in Maroon: Warm and formal, the default." },
+      { src: "skills/report-generator/shots/full-report-forest.webp", alt: "Full sample report in the forest palette with charts, a table, callouts and text", cap: "Full report in Forest: Calm and steady, good for finance." },
+      { src: "skills/report-generator/shots/full-report-navy.webp", alt: "Full sample report in the navy palette with charts, a table, callouts and text", cap: "Full report in Navy: Corporate and trustworthy." },
+      { src: "skills/report-generator/shots/full-report-plum.webp", alt: "Full sample report in the plum palette with charts, a table, callouts and text", cap: "Full report in Plum: Creative and premium." },
+      { src: "skills/report-generator/shots/full-report-terracotta.webp", alt: "Full sample report in the terracotta palette with charts, a table, callouts and text", cap: "Full report in Terracotta: Warm and editorial." },
+      { src: "skills/report-generator/shots/full-report-graphite.webp", alt: "Full sample report in the graphite palette with charts, a table, callouts and text", cap: "Full report in Graphite: Neutral and technical." },
       { src: "skills/report-generator/shots/page1-all.webp",        alt: "Page one of the sample report in each of the six palettes, showing a title band, key figures, a callout and a bar chart", cap: "Page one of the same report in every palette." },
       { src: "skills/report-generator/shots/page2-all.webp",        alt: "Page two of the sample report in each of the six palettes, showing a table, a line chart, an example callout and recommendations", cap: "Page two: table, chart, callout and recommendations." },
       { src: "skills/report-generator/shots/forest-spread.webp",    alt: "Both pages of the sample report in the forest palette", cap: "Forest: calm and steady, good for finance." },
