@@ -25,6 +25,34 @@ const SECTIONS = [
 
 const PROJECTS = [
   {
+    id: "massimo-dutti-concept", section: "websites",
+    title: "Massimo Dutti, Rail Concept", subtitle: "A concept redesign of a fashion store in one HTML file",
+    summary: "An unofficial redesign of the Massimo Dutti store showing what one HTML file can do: swipeable product rails, a woman and man filter and a quick-view panel. Products are a snapshot, not mine.",
+    body: "This is a concept redesign built purely to show what can be done with HTML design. It is not affiliated with or endorsed by Massimo Dutti. The products, names, prices and photos were taken as a snapshot from massimodutti.com on 26 November 2026; they belong to Massimo Dutti and Inditex, none of them are mine, and nothing on the page is for sale. The page covers ten sections, five for woman and five for man, with five items each, one of each type: for example a sandal, a stiletto, a ballet flat, a tall boot and a trainer in women's shoes. Each section is a horizontal rail you can swipe or step through with arrow buttons, a pill switch filters by woman or man, and every product opens a quick-view panel with model, product and fabric photos and a link to its page on massimodutti.com. It is a single self-contained HTML file with no framework; photos load from Massimo Dutti's own image server.",
+    tags: ["Website", "Concept", "HTML", "E-commerce"],
+    cover: "websites/massimo-dutti-concept/shots/home.webp",
+    shots: [
+      { src: "websites/massimo-dutti-concept/shots/home.webp",          alt: "Concept home page with a disclaimer banner, an all, woman and man filter, and two large photos for woman and man", cap: "Home: a woman and a man entry, with the filter in the header." },
+      { src: "websites/massimo-dutti-concept/shots/coats-rail.webp",    alt: "Coats and jackets rail with a large model photo followed by product photos of a wool coat, quilted leather jacket and down jacket", cap: "Each section is a rail: one model photo, then the pieces." },
+      { src: "websites/massimo-dutti-concept/shots/shoes-rail.webp",    alt: "Women's shoes rail with a bow heel sandal, a stiletto, ballet flats, a knee-high boot and a trainer", cap: "Women's shoes: one of each type." },
+      { src: "websites/massimo-dutti-concept/shots/knitwear-rail.webp", alt: "Men's knitwear rail with a cardigan, a zip mock neck, a knit polo, a crew neck and a cashmere sweater", cap: "Men's knitwear in five shapes." },
+      { src: "websites/massimo-dutti-concept/shots/man-filter.webp",    alt: "The page filtered to man, showing the men's coats and jackets rail", cap: "The filter switches between woman, man and all." },
+      { src: "websites/massimo-dutti-concept/shots/quick-view.webp",    alt: "Quick-view panel for a nappa leather satchel with a model photo, price, colour and a link to massimodutti.com", cap: "Quick view: photos, price and colour, with a link to the real product page." },
+      { src: "websites/massimo-dutti-concept/shots/mobile.webp",        alt: "Two phone screenshots of the concept: the home page and the dresses and skirts rail", cap: "On a phone, rails swipe and the filter stays in reach." }
+    ],
+    facts: [
+      ["What it is", "An unofficial concept redesign, made purely to show what can be done with HTML design"],
+      ["Products", "A snapshot from massimodutti.com taken on 26 November 2026. None of the products are mine and nothing is for sale."],
+      ["Sections", "Woman: coats, knitwear, dresses and skirts, shoes, bags. Man: coats, knitwear, shirts, trousers, shoes. Five items each."],
+      ["Features", "Swipeable rails, a woman and man filter, quick-view panels and photo swap on hover"],
+      ["Built with", "One HTML file with hand-written CSS and JavaScript, no framework"],
+      ["Not affiliated", "Massimo Dutti names and photos belong to Massimo Dutti and Inditex. Each product links to its page on their site."]
+    ],
+    actions: [
+      { label: "Open the site", note: "One HTML page of about 90 KB. Photos load from Massimo Dutti's image server, so it needs a connection.", href: "websites/massimo-dutti-concept/", primary: true }
+    ]
+  },
+  {
     id: "document-analyst", section: "skills",
     title: "Document Analyst", subtitle: "Turn any corporate document into an analyst report",
     summary: "A Claude skill that reads a quarterly or annual report, 10-K, financial statement or any corporate document and returns a deep analysis: red flags, inferences, next steps, financial health, then charts and tables.",
