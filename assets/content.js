@@ -25,6 +25,39 @@ const SECTIONS = [
 
 const PROJECTS = [
   {
+    id: "website-presentation-hero", section: "skills",
+    title: "Website Presentation Hero", subtitle: "Websites that look designed, not generated",
+    summary: "A Claude skill that takes a brief to an art-directed website or web presentation, then checks it in a real browser. Watch the deck to see how it works, then download it.",
+    body: "WebsitePresentationHero combines five sources into one workflow: Taste Skill and Image-to-Code by Leonxlnx, 84 DESIGN.md analyses of real sites from VoltAgent's awesome-design-md, Vercel's Web Interface Guidelines and Microsoft's playwright-cli. Every job runs the same six moves. It reads the brief and states a one-line Design Read with three dials, gets a visual reference instead of free-designing, plans sections and locks one theme, accent, radius and type pairing, builds to strict hero rules, screenshots the page at desktop, laptop and phone sizes, and finishes with an accessibility audit and a pre-flight that bans the usual AI-design tells. The deck in this panel was made with the skill itself, in its web-presentation mode, and shows the Porsche, Glencore and Massimo Dutti concepts it produced.",
+    tags: ["Skill", "Claude", "Web design", "Playwright"],
+    cover: "skills/website-presentation-hero/shots/title.webp",
+    shots: [
+      { src: "skills/website-presentation-hero/shots/title.webp", alt: "Deck title slide: Websites that look designed, not generated, beside screenshots of the Porsche and Glencore concepts", cap: "The deck: a tour of the skill, built with the skill." },
+      { src: "skills/website-presentation-hero/shots/tells.webp", alt: "Slide listing banned AI design defaults as struck-through tags", cap: "It names the AI-design defaults and bans them." },
+      { src: "skills/website-presentation-hero/shots/sources.webp", alt: "Slide showing the five sources in a bento grid", cap: "Five sources combined into one workflow." },
+      { src: "skills/website-presentation-hero/shots/workflow.webp", alt: "Slide with the six moves on a line: read, reference, plan, build, see, audit", cap: "Six moves, always in this order." },
+      { src: "skills/website-presentation-hero/shots/design-read.webp", alt: "Slide with a one-line Design Read and three dial values 8, 9 and 2", cap: "A one-line Design Read sets three dials." },
+      { src: "skills/website-presentation-hero/shots/hero-rules.webp", alt: "Slide with the hero rules annotated on a real hero screenshot", cap: "The hero rules, shown on a real page." },
+      { src: "skills/website-presentation-hero/shots/see-it.webp", alt: "Slide with playwright-cli commands beside desktop and phone screenshots", cap: "Every page is checked in a real browser." },
+      { src: "skills/website-presentation-hero/shots/preflight.webp", alt: "Slide listing the pre-flight checks and their results", cap: "The checks a reviewer would run." },
+      { src: "skills/website-presentation-hero/shots/made-with-it.webp", alt: "Slide with a sideways reel of the Porsche, Glencore and Massimo Dutti concepts", cap: "Work made with the skill." },
+      { src: "skills/website-presentation-hero/shots/all-slides.webp", alt: "All twelve slides of the deck in a grid", cap: "All twelve slides." },
+      { src: "skills/website-presentation-hero/shots/phone.webp", alt: "Two phone screenshots of the deck", cap: "The deck works on phones too." }
+    ],
+    facts: [
+      ["Workflow", "Read the brief, get a reference, plan, build, see it in a browser, audit and hand over"],
+      ["Sources", "Taste Skill and Image-to-Code (Leonxlnx), awesome-design-md (VoltAgent), Web Interface Guidelines (Vercel), playwright-cli (Microsoft)"],
+      ["Design library", "84 DESIGN.md analyses of real sites, from Apple and Stripe to Ferrari and Raycast"],
+      ["Checks", "Screenshots at 1440, 1280 and 390, no sideways overflow, clean console, contrast, reduced motion, zero em dashes"],
+      ["Install", "Unzip into ~/.claude/skills/ and type /website-presentation-hero in Claude Code. Needs playwright-cli for the browser checks."],
+      ["Licences", "Third-party parts keep their own licences (MIT and Apache 2.0), included in the zip"]
+    ],
+    actions: [
+      { label: "Watch the deck", note: "Twelve slides on how the skill works, made with the skill. Use the arrow keys or scroll.", href: "skills/website-presentation-hero/deck/", primary: true },
+      { label: "Download the skill", note: "A 0.8 MB zip with SKILL.md and its reference library. Unzip it into ~/.claude/skills/.", href: "skills/website-presentation-hero/website-presentation-hero.zip" }
+    ]
+  },
+  {
     id: "glencore-concept", section: "websites",
     title: "Glencore, Elemental Concept", subtitle: "A corporate concept redesign of the Glencore site",
     summary: "An unofficial eight-page redesign of glencore.com that treats its commodities as a periodic table: an element that opens into a scene, a value chain that draws itself and an emissions chart that plots as you scroll. Content is a snapshot, not mine.",
