@@ -25,6 +25,36 @@ const SECTIONS = [
 
 const PROJECTS = [
   {
+    id: "glencore-concept", section: "websites",
+    title: "Glencore, Elemental Concept", subtitle: "A corporate concept redesign of the Glencore site",
+    summary: "An unofficial eight-page redesign of glencore.com that treats its commodities as a periodic table: an element that opens into a scene, a value chain that draws itself and an emissions chart that plots as you scroll. Content is a snapshot, not mine.",
+    body: "This is a concept redesign built purely to show what can be done with HTML design. It is not affiliated with or endorsed by Glencore. The text, figures, news headlines, share prices and Glencore photographs were taken as a snapshot from glencore.com on 27 November 2026; they belong to Glencore and none of them are mine. A few extra industry photographs come from Unsplash. The design is dark graphite with a copper accent, built around the idea of elements. On the home page a Cu tile opens into a full-screen copper scene, and a pinned value chain draws a route through produce, process, move, market and recycle. Who we are stacks the six values, What we do has a commodity explorer that follows the list as you scroll, and Sustainability plots the emissions targets from a 2019 baseline to the net zero ambition. Careers, investors, news and an about page complete the site. Share prices are a static copy, not live data.",
+    tags: ["Website", "Concept", "Corporate", "GSAP"],
+    cover: "websites/glencore-concept/shots/copper-zoom.webp",
+    shots: [
+      { src: "websites/glencore-concept/shots/copper-zoom.webp", alt: "A Cu element tile opened into a full-screen photo of copper cathodes with the word Copper", cap: "Home: the Cu element tile opens into a full-screen copper scene." },
+      { src: "websites/glencore-concept/shots/home.webp", alt: "Home page with the headline The commodities that advance everyday life beside a periodic table of twelve commodities", cap: "The hero: Glencore's commodities as a periodic table." },
+      { src: "websites/glencore-concept/shots/value-chain.webp", alt: "Pinned value chain section with a copper route line and the Produce stage over an open-pit mine", cap: "The value chain draws itself as you scroll: produce, process, move, market, recycle." },
+      { src: "websites/glencore-concept/shots/value-chain-2.webp", alt: "Value chain at the Process stage with molten metal at a smelter", cap: "Each stop changes the scene and the story." },
+      { src: "websites/glencore-concept/shots/explorer.webp", alt: "What we do page with a full-height photo, an element tile and a list of commodities", cap: "Commodity explorer: scroll the list and the photo and element follow." },
+      { src: "websites/glencore-concept/shots/emissions.webp", alt: "Line chart of Glencore's emissions targets from a 2019 baseline to net zero by 2050", cap: "Sustainability: the emissions targets plot themselves as you read." },
+      { src: "websites/glencore-concept/shots/values.webp", alt: "Values cards stacking on scroll, showing Simplicity", cap: "Who we are: the six values stack as you scroll." },
+      { src: "websites/glencore-concept/shots/news.webp", alt: "Latest news list with dates in two columns", cap: "Real headlines, each linking to the release on glencore.com." },
+      { src: "websites/glencore-concept/shots/phone.webp", alt: "Six phone screenshots of the Glencore concept", cap: "Built for phones as well as desktops." }
+    ],
+    facts: [
+      ["What it is", "An unofficial concept redesign, made purely to show what can be done with HTML design"],
+      ["Snapshot", "Text, figures, headlines and Glencore photos from glencore.com, taken on 27 November 2026. None of it is mine."],
+      ["Pages", "Home, who we are, what we do, sustainability, careers, investors, news and about"],
+      ["Scroll mechanics", "Element tile zoom, a self-drawing value chain, counters, stacking values cards, a commodity explorer and a plotted emissions chart"],
+      ["Images", "Glencore's own photography plus industry photography from Unsplash"],
+      ["Not affiliated", "Glencore's name, content and photos belong to Glencore. Every section links to glencore.com."]
+    ],
+    actions: [
+      { label: "Open the site", note: "Eight pages. Best on a laptop: scroll slowly from the top. Photos load from Glencore's and Unsplash's servers, so it needs a connection.", href: "websites/glencore-concept/", primary: true }
+    ]
+  },
+  {
     id: "porsche-concept", section: "websites",
     title: "Porsche, Studio Chroma Concept", subtitle: "A cinematic concept redesign of the Porsche site",
     summary: "An unofficial ten-page redesign of porsche.com built around scroll: a zoom-out reveal, a walkaround, colour chapters that repaint the page, and a variant explorer with real figures. Images and data are a snapshot, not mine.",
