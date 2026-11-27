@@ -298,6 +298,30 @@ const PROJECTS = [
     ]
   },
   {
+    id: "deal-radar", section: "agents",
+    title: "Deal Radar", subtitle: "A weekly deals agent",
+    summary: "Drop one file into a Claude chat and it sets up a Monday roundup of the week's mergers, buyouts, venture rounds and IPOs in the sectors you choose.",
+    body: "Deal Radar is a one-step setup file. Give it to Claude, type \"set this up\", answer three questions (sectors, region, deal types) and Claude creates a scheduled task that runs every Monday. Each run works out the last seven days, searches every sector and deal type separately, opens every article to check its date, and writes a roundup with a one-paragraph summary of the week, each deal's buyer, target, type, value and rationale with a source link, and the numbers to note. Deals the parties have not confirmed are labelled as reported. It uses original sources such as Reuters, Bloomberg, the FT, company announcements and established trade press, never invents a deal, value or link, and never gives investment advice. It only reads public information.",
+    tags: ["Agent", "Claude", "Scheduled task"],
+    cover: "agents/deal-radar/shots/title.webp", coverFit: "contain", coverBg: "#0a0d17",
+    shots: [
+      { src: "agents/deal-radar/shots/title.webp",  alt: "Deal Radar title card beside an outline of the roundup: the week in one paragraph, deals by sector and numbers to note", cap: "Deal Radar: the week's deals, every Monday." },
+      { src: "agents/deal-radar/shots/format.webp", alt: "Six cards describing the roundup: the week in brief, per sector, numbers to note, last 7 days, confirmed or reported, and hard rules", cap: "What each roundup contains, and the rules it follows." },
+      { src: "agents/deal-radar/shots/setup.webp",  alt: "Three setup steps: drop the file in, answer three questions, it runs every Monday", cap: "One-step setup: drop it in a chat and say set this up." }
+    ],
+    facts: [
+      ["Schedule", "Every Monday at 7:30 in your time zone, or the time you choose"],
+      ["Sectors", "Technology, healthcare, financial services, consumer and retail, industrials, energy, real estate, media and telecoms"],
+      ["Deal types", "M&A, private equity buyouts, venture rounds and IPOs"],
+      ["Regions", "UK, Europe, US or global"],
+      ["Rules", "Every deal links to an article it opened, and unconfirmed deals are marked as reported. Only reads public information. No investment advice."],
+      ["Needs", "A paid Claude plan for the weekly schedule. On a free plan it can still write a roundup on request."]
+    ],
+    actions: [
+      { label: "Get the agent file", note: "A single Markdown file. Drop it into a Claude chat and type set this up.", href: "agents/deal-radar/deal-radar.md", primary: true }
+    ]
+  },
+  {
     id: "sector-news-brief", section: "agents",
     title: "Sector News Brief", subtitle: "A daily market news agent",
     summary: "Drop one file into a Claude chat and it sets up a scheduled brief that researches your sectors and arrives every weekday morning.",
