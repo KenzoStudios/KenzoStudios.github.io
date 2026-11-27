@@ -298,6 +298,30 @@ const PROJECTS = [
     ]
   },
   {
+    id: "central-bank-watch", section: "agents",
+    title: "Central Bank Watch", subtitle: "A daily central bank agent",
+    summary: "Drop one file into a Claude chat and it sets up a weekday brief on 13 major central banks: every rate decision, the reasons each bank gave, and what is coming up.",
+    body: "Central Bank Watch is a one-step setup file. Give it to Claude, type \"set this up\", choose which banks to follow and a delivery time, and Claude creates a scheduled task that runs every weekday. It covers the Fed, the ECB, the Bank of England, the Bank of Japan, the People's Bank of China, the Swiss National Bank, the Bank of Canada, the Reserve Bank of Australia, the Reserve Bank of New Zealand, the Riksbank, Norges Bank, the Reserve Bank of India and the Banco Central do Brasil. Each run checks the banks' own websites first and reports any rate decision with the new rate, the change and the vote split, a short overview of why the bank says it acted, taken only from its statement, press conference or minutes, and any change in guidance. It adds speeches, minutes and balance sheet moves, and a table of the week ahead. On a quiet day the brief is a few lines. It never invents a rate or a reason, never predicts policy and never gives investment advice.",
+    tags: ["Agent", "Claude", "Scheduled task"],
+    cover: "agents/central-bank-watch/shots/title.webp", coverFit: "contain", coverBg: "#0a0d17",
+    shots: [
+      { src: "agents/central-bank-watch/shots/title.webp",  alt: "Central Bank Watch title card beside an outline of the brief: in brief, decisions, speeches and the week ahead", cap: "Central Bank Watch: every decision, every weekday." },
+      { src: "agents/central-bank-watch/shots/format.webp", alt: "Six cards describing the brief: decisions, why they did it, what changed, speeches and minutes, the week ahead, and hard rules", cap: "The decision, and the bank's own reasons." },
+      { src: "agents/central-bank-watch/shots/banks.webp",  alt: "Grid of the thirteen central banks covered, from the Fed to the Banco Central do Brasil", cap: "Thirteen major central banks. Follow all or pick a few." }
+    ],
+    facts: [
+      ["Schedule", "Monday to Friday at the time you choose, 7:00 by default"],
+      ["Banks", "Fed, ECB, Bank of England, Bank of Japan, PBoC, SNB, Bank of Canada, RBA, RBNZ, Riksbank, Norges Bank, RBI and Banco Central do Brasil"],
+      ["Why", "A short overview of the reasons for each decision, taken only from what the bank has published: its statement, press conference or minutes"],
+      ["Sources", "The central banks' own websites first, with Reuters, Bloomberg, the FT and others only for context"],
+      ["Rules", "Every item links to a page it opened. No invented rates or reasons, no forecasts, no investment advice. Only reads public information."],
+      ["Needs", "A paid Claude plan for the daily schedule. On a free plan it can still write a brief on request."]
+    ],
+    actions: [
+      { label: "Get the agent file", note: "A single Markdown file. Drop it into a Claude chat and type set this up.", href: "agents/central-bank-watch/central-bank-watch.md", primary: true }
+    ]
+  },
+  {
     id: "deal-radar", section: "agents",
     title: "Deal Radar", subtitle: "A weekly deals agent",
     summary: "Drop one file into a Claude chat and it sets up a Monday roundup of the week's mergers, buyouts, venture rounds and IPOs in the sectors you choose.",
